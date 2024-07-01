@@ -131,6 +131,17 @@ def generate_launch_description():
             namespace=namespace),
 
         Node(
+            package='goal_predictor',
+            executable='predictor_server',
+            name='predictor_server',
+            output='screen',
+            respawn=use_respawn,
+            respawn_delay=2.0,
+            parameters=[configured_params],
+            arguments=['--ros-args', '--log-level', log_level],
+            remappings=remappings),
+
+        Node(
             condition=IfCondition(use_composition),
             name='nav2_container',
             package='rclcpp_components',
