@@ -22,6 +22,7 @@ from launch.actions import (DeclareLaunchArgument, GroupAction,
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch_ros.actions import LifecycleNode
 from launch_ros.actions import Node
 from launch_ros.actions import PushRosNamespace
 from launch_ros.descriptions import ParameterFile
@@ -130,11 +131,12 @@ def generate_launch_description():
             condition=IfCondition(use_namespace),
             namespace=namespace),
 
-        Node(
+        LifecycleNode(
             package='goal_predictor',
             executable='predictor_server',
             name='predictor_server',
             output='screen',
+            namespace=namespace,
             respawn=use_respawn,
             respawn_delay=2.0,
             parameters=[configured_params],
