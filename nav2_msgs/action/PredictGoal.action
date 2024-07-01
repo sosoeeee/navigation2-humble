@@ -1,0 +1,8 @@
+#goal definition
+std_msgs/Empty goal
+---
+#result definition
+geometry_msgs/PoseStamped predicted_goal
+---
+#feedback definition
+
