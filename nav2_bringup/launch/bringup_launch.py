@@ -33,6 +33,8 @@ def generate_launch_description():
     # Get the launch directory
     bringup_dir = get_package_share_directory('nav2_bringup')
     launch_dir = os.path.join(bringup_dir, 'launch')
+    goal_predictor_dir = get_package_share_directory('goal_predictor')
+    launch_predictor_dir = os.path.join(goal_predictor_dir, 'launch')
 
     # Create the launch configuration variables
     namespace = LaunchConfiguration('namespace')
@@ -131,18 +133,6 @@ def generate_launch_description():
             condition=IfCondition(use_namespace),
             namespace=namespace),
 
-        LifecycleNode(
-            package='goal_predictor',
-            executable='predictor_server',
-            name='predictor_server',
-            output='screen',
-            namespace=namespace,
-            respawn=use_respawn,
-            respawn_delay=2.0,
-            parameters=[configured_params],
-            arguments=['--ros-args', '--log-level', log_level],
-            remappings=remappings),
-
         Node(
             condition=IfCondition(use_composition),
             name='nav2_container',
@@ -152,6 +142,14 @@ def generate_launch_description():
             arguments=['--ros-args', '--log-level', log_level],
             remappings=remappings,
             output='screen'),
+
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(launch_predictor_dir, 'goal_predictor_launch.py')),
+            launch_arguments={'namespace': namespace,
+                              'use_sim_time': use_sim_time,
+                              'autostart': autostart,
+                              'params_file': params_file,
+                              'use_respawn': use_respawn}.items()),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(launch_dir, 'slam_launch.py')),
@@ -186,6 +184,8 @@ def generate_launch_description():
                               'container_name': 'nav2_container'}.items()),
     ])
 
+
+
     # Create the launch description and populate
     ld = LaunchDescription()
 
@@ -205,6 +205,7 @@ def generate_launch_description():
     ld.add_action(declare_log_level_cmd)
 
     # Add the actions to launch all of the navigation nodes
+    # ld.add_action(start_goal_predictor_cmd)
     ld.add_action(bringup_cmd_group)
 
     return ld
