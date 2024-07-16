@@ -194,6 +194,11 @@
       <input_port name="server_timeout">Server timeout</input_port>
     </Action>
 
+    <Action ID="PredictGoal">
+      <input_port name="goal">Global destination</input_port>
+      <output_port name="predicted_goal">Goal predited by RL agent</input_port>
+    </Action>
+
     <!-- ############################### CONDITION NODES ############################## -->
     <Condition ID="GoalReached">
         <input_port name="goal">Destination</input_port>
