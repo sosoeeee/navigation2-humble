@@ -196,7 +196,7 @@
 
     <Action ID="PredictGoal">
       <input_port name="goal">Global destination</input_port>
-      <output_port name="predicted_goal">Goal predited by RL agent</input_port>
+      <output_port name="predicted_goal">Goal predited by RL agent</output_port>
     </Action>
 
     <!-- ############################### CONDITION NODES ############################## -->
