@@ -207,11 +207,7 @@ PlannerServer::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
    * unordered_set iteration. Once this issue is resolved, we can maybe make a stronger
    * ordering assumption: https://github.com/ros2/rclcpp/issues/2096
    */
-  if (costmap_ros_->get_current_state().id() ==
-    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
-  {
-    costmap_ros_->deactivate();
-  }
+  costmap_ros_->deactivate();
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it) {
@@ -236,15 +232,7 @@ PlannerServer::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
   plan_publisher_.reset();
   tf_.reset();
 
-  /*
-   * Double check whether something else transitioned it to INACTIVE
-   * already, e.g. the rcl preshutdown callback.
-   */
-  if (costmap_ros_->get_current_state().id() ==
-    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
-  {
-    costmap_ros_->cleanup();
-  }
+  costmap_ros_->cleanup();
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it) {
@@ -372,7 +360,7 @@ PlannerServer::computePlanThroughPoses()
 {
   std::lock_guard<std::mutex> lock(dynamic_params_lock_);
 
-  auto start_time = steady_clock_.now();
+  auto start_time = this->now();
 
   // Initialize the ComputePathToPose goal and result
   auto goal = action_server_poses_->get_current_goal();
@@ -408,7 +396,10 @@ PlannerServer::computePlanThroughPoses()
       if (i == 0) {
         curr_start = start;
       } else {
-        curr_start = goal->goals[i - 1];
+        // pick the end of the last planning task as the start for the next one
+        // to allow for path tolerance deviations
+        curr_start = concat_path.poses.back();
+        curr_start.header = concat_path.header;
       }
       curr_goal = goal->goals[i];
 
@@ -435,7 +426,7 @@ PlannerServer::computePlanThroughPoses()
     result->path = concat_path;
     publishPlan(result->path);
 
-    auto cycle_duration = steady_clock_.now() - start_time;
+    auto cycle_duration = this->now() - start_time;
     result->planning_time = cycle_duration;
 
     if (max_planner_duration_ && cycle_duration.seconds() > max_planner_duration_) {
@@ -461,7 +452,7 @@ PlannerServer::computePlan()
 {
   std::lock_guard<std::mutex> lock(dynamic_params_lock_);
 
-  auto start_time = steady_clock_.now();
+  auto start_time = this->now();
 
   // Initialize the ComputePathToPose goal and result
   auto goal = action_server_pose_->get_current_goal();
@@ -497,7 +488,7 @@ PlannerServer::computePlan()
     // Publish the plan for visualization purposes
     publishPlan(result->path);
 
-    auto cycle_duration = steady_clock_.now() - start_time;
+    auto cycle_duration = this->now() - start_time;
     result->planning_time = cycle_duration;
 
     if (max_planner_duration_ && cycle_duration.seconds() > max_planner_duration_) {

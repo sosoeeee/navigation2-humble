@@ -62,6 +62,7 @@ void GridCollisionChecker::setFootprint(
     return;
   }
 
+  oriented_footprints_.clear();
   oriented_footprints_.reserve(angles_.size());
   double sin_th, cos_th;
   geometry_msgs::msg::Point new_pt;
@@ -96,7 +97,7 @@ bool GridCollisionChecker::inCollision(
   if (outsideRange(costmap_->getSizeInCellsX(), x) ||
     outsideRange(costmap_->getSizeInCellsY(), y))
   {
-    return false;
+    return true;
   }
 
   // Assumes setFootprint already set
