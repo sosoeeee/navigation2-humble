@@ -20,13 +20,16 @@
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
+#include "nav2_util/ros_rate.hpp"
 #include "behaviortree_cpp_v3/utils/shared_library.h"
 
 namespace nav2_behavior_tree
 {
 
 BehaviorTreeEngine::BehaviorTreeEngine(
-  const std::vector<std::string> & plugin_libraries)
+  const std::vector<std::string> & plugin_libraries,
+  rclcpp::Clock::SharedPtr clock)
+  : clock_(clock)
 {
   BT::SharedLibrary loader;
   for (const auto & p : plugin_libraries) {
@@ -41,7 +44,8 @@ BehaviorTreeEngine::run(
   std::function<bool()> cancelRequested,
   std::chrono::milliseconds loopTimeout)
 {
-  rclcpp::WallRate loopRate(loopTimeout);
+  // rclcpp::WallRate loopRate(loopTimeout);
+  nav2_util::RosRate loopRate(loopTimeout, clock_);
   BT::NodeStatus result = BT::NodeStatus::RUNNING;
 
   // Loop until something happens with ROS or the node completes

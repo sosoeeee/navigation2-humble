@@ -47,6 +47,7 @@
 #include "nav2_costmap_2d/layered_costmap.hpp"
 #include "nav2_util/execution_timer.hpp"
 #include "nav2_util/node_utils.hpp"
+#include "nav2_util/ros_rate.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2_ros/create_timer_ros.h"
 #include "nav2_util/robot_utils.hpp"
@@ -464,7 +465,8 @@ Costmap2DROS::mapUpdateLoop(double frequency)
 
   RCLCPP_DEBUG(get_logger(), "Entering loop");
 
-  rclcpp::WallRate r(frequency);    // 200ms by default
+  // rclcpp::WallRate r(frequency);    // 200ms by default
+  nav2_util::RosRate r(frequency, get_clock());    
 
   while (rclcpp::ok() && !map_update_thread_shutdown_) {
     nav2_util::ExecutionTimer timer;
