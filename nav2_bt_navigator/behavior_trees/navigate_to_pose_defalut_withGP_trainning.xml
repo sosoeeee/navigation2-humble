@@ -5,7 +5,7 @@
     <RecoveryNode name="NavigateRecovery"
                   number_of_retries="6">
       <PipelineSequence name="NavigateWithReplanning">
-        <RateController hz="1.0">
+        <RosRateController hz="1.0">
           <Sequence>
             <PredictGoal goal="{goal}"
                          predicted_goal="{predicted_goal}"/>
@@ -18,7 +18,7 @@
                                   service_name="global_costmap/clear_entirely_global_costmap"/>
             </RecoveryNode>
           </Sequence>
-        </RateController>
+        </RosRateController>
         <RecoveryNode name="FollowPath"
                       number_of_retries="1">
           <FollowPath controller_id="FollowPath"

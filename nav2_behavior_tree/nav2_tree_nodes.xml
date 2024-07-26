@@ -271,6 +271,10 @@
       <input_port name="hz">Rate</input_port>
     </Decorator>
 
+    <Decorator ID="RosRateController">
+      <input_port name="hz">Rate</input_port>
+    </Decorator>
+
     <Decorator ID="DistanceController">
       <input_port name="distance">Distance</input_port>
       <input_port name="global_frame">Reference frame</input_port>
