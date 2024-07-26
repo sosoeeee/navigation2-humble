@@ -26,6 +26,7 @@
 #include "nav2_util/node_utils.hpp"
 #include "nav2_util/geometry_utils.hpp"
 #include "nav2_controller/controller_server.hpp"
+#include "nav2_util/ros_rate.hpp"
 
 using namespace std::chrono_literals;
 using rcl_interfaces::msg::ParameterType;
@@ -381,7 +382,11 @@ void ControllerServer::computeControl()
     progress_checker_->reset();
 
     last_valid_cmd_time_ = now();
-    rclcpp::WallRate loop_rate(controller_frequency_);
+
+    // rclcpp::WallRate loop_rate(controller_frequency_);
+    // change to ros timer
+    nav2_util::RosRate loop_rate(controller_frequency_, get_clock());
+
     while (rclcpp::ok()) {
       if (action_server_ == nullptr || !action_server_->is_server_active()) {
         RCLCPP_DEBUG(get_logger(), "Action server unavailable or inactive. Stopping.");
