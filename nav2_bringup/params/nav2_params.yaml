@@ -72,6 +72,7 @@ bt_navigator:
       - nav2_initial_pose_received_condition_bt_node
       - nav2_reinitialize_global_localization_service_bt_node
       - nav2_rate_controller_bt_node
+      - nav2_ros_rate_controller_bt_node
       - nav2_distance_controller_bt_node
       - nav2_speed_controller_bt_node
       - nav2_truncate_path_action_bt_node
@@ -350,3 +351,7 @@ velocity_smoother:
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 1.0
+
+gazebo:
+  ros__parameters:
+    publish_rate: 100.0

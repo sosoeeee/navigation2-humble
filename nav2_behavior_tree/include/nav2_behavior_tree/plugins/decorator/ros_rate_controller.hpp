@@ -44,8 +44,8 @@ private:
    */
   BT::NodeStatus tick() override;
 
+  rclcpp::Node::SharedPtr node_;
   rclcpp::Time start_;
-  rclcpp::Clock::SharedPtr clock_;
   double period_;
   bool first_time_;
 };

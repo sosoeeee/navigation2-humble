@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "rclcpp/rclcpp.hpp"
 #include "nav2_velocity_smoother/velocity_smoother.hpp"
 
 using namespace std::chrono_literals;
@@ -134,10 +135,15 @@ VelocitySmoother::on_activate(const rclcpp_lifecycle::State &)
   RCLCPP_INFO(get_logger(), "Activating");
   smoothed_cmd_pub_->on_activate();
   double timer_duration_ms = 1000.0 / smoothing_frequency_;
-  timer_ = this->create_timer(
+  // timer_ = this->create_timer(
+  //   std::chrono::milliseconds(static_cast<int>(timer_duration_ms)),
+  //   std::bind(&VelocitySmoother::smootherTimer, this));
+  timer_ = rclcpp::create_timer(
+    this,
+    this->get_clock(),
     std::chrono::milliseconds(static_cast<int>(timer_duration_ms)),
-    std::bind(&VelocitySmoother::smootherTimer, this));
-
+    std::bind(&VelocitySmoother::smootherTimer, this)
+  );
   dyn_params_handler_ = this->add_on_set_parameters_callback(
     std::bind(&VelocitySmoother::dynamicParametersCallback, this, _1));
 
@@ -342,9 +348,17 @@ VelocitySmoother::dynamicParametersCallback(std::vector<rclcpp::Parameter> param
         }
 
         double timer_duration_ms = 1000.0 / smoothing_frequency_;
-        timer_ = this->create_timer(
+
+        // timer_ = this->create_timer(
+        //   std::chrono::milliseconds(static_cast<int>(timer_duration_ms)),
+        //   std::bind(&VelocitySmoother::smootherTimer, this));
+        timer_ = rclcpp::create_timer(
+          this,
+          this->get_clock(),
           std::chrono::milliseconds(static_cast<int>(timer_duration_ms)),
-          std::bind(&VelocitySmoother::smootherTimer, this));
+          std::bind(&VelocitySmoother::smootherTimer, this)
+        );
+
       } else if (name == "velocity_timeout") {
         velocity_timeout_ = rclcpp::Duration::from_seconds(parameter.as_double());
       } else if (name == "odom_duration") {

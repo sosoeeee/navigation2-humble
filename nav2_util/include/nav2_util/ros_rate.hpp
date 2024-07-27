@@ -17,13 +17,13 @@ public:
     if (rate <= 0.0) {
     throw std::invalid_argument{"rate must be greater than 0"};
     }
-    period_ = Duration::from_seconds(1.0 / rate);
+    period_ = rclcpp::Duration::from_seconds(1.0 / rate);
   }
 
   RosRate(rclcpp::Duration period, rclcpp::Clock::SharedPtr clock)
   : period_(period), last_interval_(clock->now()), clock_(clock)
   {
-    if (period <= Duration(0, 0)) {
+    if (period <= rclcpp::Duration(0, 0)) {
     throw std::invalid_argument{"period must be greater than 0"};
     }
   }
@@ -63,9 +63,14 @@ public:
     last_interval_ = clock_->now();
   }
 
-  rclcpp::Duration period() const
+  // rclcpp::Duration period() const
+  // {
+  //   return period_;
+  // }
+
+  std::chrono::nanoseconds period() const
   {
-    return period_;
+    return period_.to_chrono<std::chrono::nanoseconds>();
   }
 
 protected:

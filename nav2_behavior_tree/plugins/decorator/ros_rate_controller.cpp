@@ -1,5 +1,6 @@
 #include <chrono>
 #include <string>
+#include <iostream>
 
 #include "nav2_behavior_tree/plugins/decorator/ros_rate_controller.hpp"
 
@@ -15,7 +16,7 @@ RosRateController::RosRateController(
   double hz = 1.0;
   getInput("hz", hz);
   period_ = 1.0 / hz;
-  clock_ = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
+  node_ = config().blackboard->get<rclcpp::Node::SharedPtr>("node");
 }
 
 BT::NodeStatus RosRateController::tick()
@@ -23,15 +24,19 @@ BT::NodeStatus RosRateController::tick()
   if (status() == BT::NodeStatus::IDLE) {
     // Reset the starting point since we're starting a new iteration of
     // the rate controller (moving from IDLE to RUNNING)
-    start_ = clock_->now();
+    start_ = node_->now();
     first_time_ = true;
   }
 
   setStatus(BT::NodeStatus::RUNNING);
 
   // Determine how long its been since we've started this iteration
-  auto now = clock_->now();
+  auto now = node_->now();
   auto elapsed = now - start_;
+
+  // [DEBUG] Print the current time
+  // auto now_msg = now.nanoseconds();
+  // std::cout << "[RosRateController] Current time (nanoseconds since epoch): " << now_msg << std::endl;
 
   // Now, get that in seconds
   auto seconds = elapsed.seconds();
@@ -50,7 +55,7 @@ BT::NodeStatus RosRateController::tick()
         return BT::NodeStatus::RUNNING;
 
       case BT::NodeStatus::SUCCESS:
-        start_ = clock_->now();  // Reset the timer
+        start_ = node_->now();  // Reset the timer
         return BT::NodeStatus::SUCCESS;
 
       case BT::NodeStatus::FAILURE:

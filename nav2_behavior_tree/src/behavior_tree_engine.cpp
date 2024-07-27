@@ -45,7 +45,7 @@ BehaviorTreeEngine::run(
   std::chrono::milliseconds loopTimeout)
 {
   // rclcpp::WallRate loopRate(loopTimeout);
-  nav2_util::RosRate loopRate(loopTimeout, clock_);
+  nav2_util::RosRate loopRate(1.0 / (loopTimeout.count() * 1.0e-3), clock_);
   BT::NodeStatus result = BT::NodeStatus::RUNNING;
 
   // Loop until something happens with ROS or the node completes
