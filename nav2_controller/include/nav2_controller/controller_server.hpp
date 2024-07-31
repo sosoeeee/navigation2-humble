@@ -209,6 +209,11 @@ protected:
   rcl_interfaces::msg::SetParametersResult
   dynamicParametersCallback(std::vector<rclcpp::Parameter> parameters);
 
+  /**
+   * @brief Calls stop request for gazebo stepping control
+   */
+  void publishStopRequest(bool stop);
+
   // Dynamic parameters handler
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
   std::mutex dynamic_params_lock_;
@@ -263,6 +268,9 @@ protected:
 
   // Current path container
   nav_msgs::msg::Path current_path_;
+
+  // stop request for gazebo stepping control
+  rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr stepping_publisher_;
 
 private:
   /**

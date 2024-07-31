@@ -210,6 +210,8 @@ ControllerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
     speed_limit_topic, rclcpp::QoS(10),
     std::bind(&ControllerServer::speedLimitCallback, this, std::placeholders::_1));
 
+  stepping_publisher_ = create_publisher<std_msgs::msg::String>("stop_request", 1);
+
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -230,6 +232,8 @@ ControllerServer::on_activate(const rclcpp_lifecycle::State & /*state*/)
   // Add callback for dynamic parameters
   dyn_params_handler_ = node->add_on_set_parameters_callback(
     std::bind(&ControllerServer::dynamicParametersCallback, this, _1));
+
+  stepping_publisher_->on_activate();
 
   // create bond connection
   createBond();
@@ -259,6 +263,7 @@ ControllerServer::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
 
   publishZeroVelocity();
   vel_publisher_->on_deactivate();
+  stepping_publisher_->on_deactivate();
   dyn_params_handler_.reset();
 
   // destroy bond connection
@@ -290,6 +295,7 @@ ControllerServer::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
   costmap_thread_.reset();
   vel_publisher_.reset();
   speed_limit_sub_.reset();
+  stepping_publisher_.reset();
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -388,8 +394,12 @@ void ControllerServer::computeControl()
     nav2_util::RosRate loop_rate(controller_frequency_, get_clock());
 
     while (rclcpp::ok()) {
+      // request to stop ROS2 timer
+      publishStopRequest(true);
+
       if (action_server_ == nullptr || !action_server_->is_server_active()) {
         RCLCPP_DEBUG(get_logger(), "Action server unavailable or inactive. Stopping.");
+        publishStopRequest(false); // restart the timer
         return;
       }
 
@@ -397,11 +407,12 @@ void ControllerServer::computeControl()
         RCLCPP_INFO(get_logger(), "Goal was canceled. Stopping the robot.");
         action_server_->terminate_all();
         publishZeroVelocity();
+        publishStopRequest(false); // restart the timer
         return;
       }
 
       // Don't compute a trajectory until costmap is valid (after clear costmap)
-      rclcpp::Rate r(100);
+      rclcpp::WallRate r(100);
       while (!costmap_ros_->isCurrent()) {
         r.sleep();
       }
@@ -415,6 +426,8 @@ void ControllerServer::computeControl()
         break;
       }
 
+      publishStopRequest(false); // restart the timer
+
       if (!loop_rate.sleep()) {
         RCLCPP_WARN(
           get_logger(), "Control loop missed its desired rate of %.4fHz",
@@ -424,11 +437,13 @@ void ControllerServer::computeControl()
   } catch (nav2_core::PlannerException & e) {
     RCLCPP_ERROR(this->get_logger(), "%s", e.what());
     publishZeroVelocity();
+    publishStopRequest(false); // restart the timer
     action_server_->terminate_current();
     return;
   } catch (std::exception & e) {
     RCLCPP_ERROR(this->get_logger(), "%s", e.what());
     publishZeroVelocity();
+    publishStopRequest(false); // restart the timer
     std::shared_ptr<Action::Result> result = std::make_shared<Action::Result>();
     action_server_->terminate_current(result);
     return;
@@ -437,6 +452,7 @@ void ControllerServer::computeControl()
   RCLCPP_DEBUG(get_logger(), "Controller succeeded, setting result");
 
   publishZeroVelocity();
+  publishStopRequest(false); // restart the timer
 
   // TODO(orduno) #861 Handle a pending preemption and set controller name
   action_server_->succeeded_current();
@@ -569,6 +585,19 @@ void ControllerServer::publishVelocity(const geometry_msgs::msg::TwistStamped & 
   auto cmd_vel = std::make_unique<geometry_msgs::msg::Twist>(velocity.twist);
   if (vel_publisher_->is_activated() && vel_publisher_->get_subscription_count() > 0) {
     vel_publisher_->publish(std::move(cmd_vel));
+  }
+}
+
+void ControllerServer::publishStopRequest(bool stop)  
+{
+  auto msg = std::make_unique<std_msgs::msg::String>();
+  if (stop) {
+    msg->data = "controller_s";
+  } else {
+    msg->data = "controller_e";
+  }
+  if (stepping_publisher_->is_activated() && stepping_publisher_->get_subscription_count() > 0) {
+    stepping_publisher_->publish(std::move(msg));
   }
 }
 
