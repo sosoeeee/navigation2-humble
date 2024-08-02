@@ -18,7 +18,7 @@ public:
     SteppingPublisher(std::shared_ptr<rclcpp_lifecycle::LifecycleNode> node, std::string id)
     : node_(node), id_(id)
     {
-        pub_ = node_->create_publisher<std_msgs::msg::String>("stop_request", 1);
+        pub_ = node_->create_publisher<std_msgs::msg::String>("/stop_request", 1);
         RCLCPP_INFO(node_->get_logger(), "Stepping publisher created");
     }
 
