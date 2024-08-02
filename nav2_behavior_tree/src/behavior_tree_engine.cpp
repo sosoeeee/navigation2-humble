@@ -28,13 +28,24 @@ namespace nav2_behavior_tree
 
 BehaviorTreeEngine::BehaviorTreeEngine(
   const std::vector<std::string> & plugin_libraries,
-  rclcpp::Clock::SharedPtr clock)
-  : clock_(clock)
+  rclcpp::Clock::SharedPtr clock,
+  rclcpp_lifecycle::LifecycleNode::SharedPtr node)
+  : clock_(clock),
+    node_(node)
 {
   BT::SharedLibrary loader;
   for (const auto & p : plugin_libraries) {
     factory_.registerFromPlugin(loader.getOSName(p));
   }
+
+  stepping_publisher_ = std::make_shared<nav2_util::SteppingPublisher>(node_, "behaviorTree");
+  stepping_publisher_->on_activate();
+}
+
+BehaviorTreeEngine::~BehaviorTreeEngine()
+{
+  stepping_publisher_->on_deactivate();
+  stepping_publisher_->reset();
 }
 
 BtStatus
@@ -56,9 +67,13 @@ BehaviorTreeEngine::run(
         return BtStatus::CANCELED;
       }
 
+      stepping_publisher_->request_stop();
+
       result = tree->tickRoot();
 
       onLoop();
+
+      stepping_publisher_->request_restart();
 
       if (!loopRate.sleep()) {
         RCLCPP_WARN(

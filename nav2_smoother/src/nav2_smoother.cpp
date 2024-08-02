@@ -114,6 +114,8 @@ SmootherServer::on_configure(const rclcpp_lifecycle::State &)
     nullptr,
     std::chrono::milliseconds(500),
     true);
+  
+  stepping_publisher_ = std::make_unique<nav2_util::SteppingPublisher>(shared_from_this(), "smoother");
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -162,6 +164,7 @@ SmootherServer::on_activate(const rclcpp_lifecycle::State &)
   RCLCPP_INFO(get_logger(), "Activating");
 
   plan_publisher_->on_activate();
+  stepping_publisher_->on_activate();
   SmootherMap::iterator it;
   for (it = smoothers_.begin(); it != smoothers_.end(); ++it) {
     it->second->activate();
@@ -185,6 +188,7 @@ SmootherServer::on_deactivate(const rclcpp_lifecycle::State &)
     it->second->deactivate();
   }
   plan_publisher_->on_deactivate();
+  stepping_publisher_->on_deactivate();
 
   // destroy bond connection
   destroyBond();
@@ -207,6 +211,7 @@ SmootherServer::on_cleanup(const rclcpp_lifecycle::State &)
   // Release any allocated resources
   action_server_.reset();
   plan_publisher_.reset();
+  stepping_publisher_->reset();
   transform_listener_.reset();
   tf_.reset();
   footprint_sub_.reset();
@@ -254,6 +259,8 @@ bool SmootherServer::findSmootherId(
 
 void SmootherServer::smoothPlan()
 {
+  stepping_publisher_->request_stop();
+
   auto start_time = this->now();
 
   RCLCPP_INFO(get_logger(), "Received a path to smooth.");
@@ -266,6 +273,7 @@ void SmootherServer::smoothPlan()
       current_smoother_ = current_smoother;
     } else {
       action_server_->terminate_current();
+      stepping_publisher_->request_restart();
       return;
     }
 
@@ -302,6 +310,7 @@ void SmootherServer::smoothPlan()
             "Smoothed path leads to a collision at x: %lf, y: %lf, theta: %lf",
             pose2d.x, pose2d.y, pose2d.theta);
           action_server_->terminate_current(result);
+          stepping_publisher_->request_restart();
           return;
         }
         fetch_data = false;
@@ -312,13 +321,17 @@ void SmootherServer::smoothPlan()
       get_logger(), "Smoother succeeded (time: %lf), setting result",
       rclcpp::Duration(result->smoothing_duration).seconds());
 
+    stepping_publisher_->request_restart();
+
     action_server_->succeeded_current(result);
   } catch (nav2_core::PlannerException & e) {
     RCLCPP_ERROR(this->get_logger(), "%s", e.what());
+    stepping_publisher_->request_restart();
     action_server_->terminate_current();
     return;
   } catch (std::exception & ex) {
     RCLCPP_ERROR(this->get_logger(), "%s", ex.what());
+    stepping_publisher_->request_restart();
     action_server_->terminate_current(result);
     return;
   }

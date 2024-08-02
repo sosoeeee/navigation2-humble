@@ -31,6 +31,7 @@
 #include "nav2_msgs/msg/costmap.hpp"
 #include "nav2_util/robot_utils.hpp"
 #include "nav2_util/simple_action_server.hpp"
+#include "nav2_util/stepping_control_utils.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include "tf2_ros/transform_listener.h"
 #include "tf2_ros/create_timer_ros.h"
@@ -250,6 +251,10 @@ protected:
 
   // Service to deterime if the path is valid
   rclcpp::Service<nav2_msgs::srv::IsPathValid>::SharedPtr is_path_valid_service_;
+
+  // stepping publisher
+  // only act on compute path to pose (function computePlan)
+  std::shared_ptr<nav2_util::SteppingPublisher> stepping_publisher_;
 };
 
 }  // namespace nav2_planner

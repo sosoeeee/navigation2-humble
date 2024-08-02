@@ -154,6 +154,8 @@ PlannerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
     nullptr,
     std::chrono::milliseconds(500),
     true);
+  
+  stepping_publisher_ = std::make_unique<nav2_util::SteppingPublisher>(shared_from_this(), "planner");
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -164,6 +166,7 @@ PlannerServer::on_activate(const rclcpp_lifecycle::State & /*state*/)
   RCLCPP_INFO(get_logger(), "Activating");
 
   plan_publisher_->on_activate();
+  stepping_publisher_->on_activate();
   action_server_pose_->activate();
   action_server_poses_->activate();
   costmap_ros_->activate();
@@ -199,6 +202,7 @@ PlannerServer::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
   action_server_pose_->deactivate();
   action_server_poses_->deactivate();
   plan_publisher_->on_deactivate();
+  stepping_publisher_->on_deactivate();
 
   /*
    * The costmap is also a lifecycle node, so it may have already fired on_deactivate
@@ -230,6 +234,7 @@ PlannerServer::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
   action_server_pose_.reset();
   action_server_poses_.reset();
   plan_publisher_.reset();
+  stepping_publisher_->reset();
   tf_.reset();
 
   costmap_ros_->cleanup();
@@ -452,6 +457,8 @@ PlannerServer::computePlan()
 {
   std::lock_guard<std::mutex> lock(dynamic_params_lock_);
 
+  stepping_publisher_->request_stop();
+
   auto start_time = this->now();
 
   // Initialize the ComputePathToPose goal and result
@@ -460,6 +467,7 @@ PlannerServer::computePlan()
 
   try {
     if (isServerInactive(action_server_pose_) || isCancelRequested(action_server_pose_)) {
+      stepping_publisher_->request_restart();
       return;
     }
 
@@ -470,18 +478,21 @@ PlannerServer::computePlan()
     // Use start pose if provided otherwise use current robot pose
     geometry_msgs::msg::PoseStamped start;
     if (!getStartPose(action_server_pose_, goal, start)) {
+      stepping_publisher_->request_restart();
       return;
     }
 
     // Transform them into the global frame
     geometry_msgs::msg::PoseStamped goal_pose = goal->goal;
     if (!transformPosesToGlobalFrame(action_server_pose_, start, goal_pose)) {
+      stepping_publisher_->request_restart();
       return;
     }
 
     result->path = getPlan(start, goal_pose, goal->planner_id);
 
     if (!validatePath(action_server_pose_, goal_pose, result->path, goal->planner_id)) {
+      stepping_publisher_->request_restart();
       return;
     }
 
@@ -498,12 +509,15 @@ PlannerServer::computePlan()
         1 / max_planner_duration_, 1 / cycle_duration.seconds());
     }
 
+    stepping_publisher_->request_restart();
+
     action_server_pose_->succeeded_current(result);
-  } catch (std::exception & ex) {
+  } catch (std::exceps tion & ex) {
     RCLCPP_WARN(
-      get_logger(), "%s plugin failed to plan calculation to (%.2f, %.2f): \"%s\"",
+      get_logger(), "%plugin failed to plan calculation to (%.2f, %.2f): \"%s\"",
       goal->planner_id.c_str(), goal->goal.pose.position.x,
       goal->goal.pose.position.y, ex.what());
+    stepping_publisher_->request_restart();
     action_server_pose_->terminate_current();
   }
 }

@@ -126,7 +126,7 @@ bool BtActionServer<ActionT>::on_configure()
   // Create the class that registers our custom nodes and executes the BT
   try {
     bt_ = std::make_unique<nav2_behavior_tree::BehaviorTreeEngine>(
-      plugin_lib_names_, node->get_clock());
+      plugin_lib_names_, node->get_clock(), node);
   } catch (const std::exception & e) {
     RCLCPP_ERROR(logger_, "Exception when configuring BT: %s", e.what());
     return false;

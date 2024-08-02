@@ -125,6 +125,8 @@ VelocitySmoother::on_configure(const rclcpp_lifecycle::State &)
   cmd_sub_ = create_subscription<geometry_msgs::msg::Twist>(
     "cmd_vel", rclcpp::QoS(1),
     std::bind(&VelocitySmoother::inputCommandCallback, this, std::placeholders::_1));
+  
+  stepping_publisher_ = std::make_unique<nav2_util::SteppingPublisher>(node, "velSmoother");
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -134,6 +136,7 @@ VelocitySmoother::on_activate(const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(get_logger(), "Activating");
   smoothed_cmd_pub_->on_activate();
+  stepping_publisher_->on_activate();
   double timer_duration_ms = 1000.0 / smoothing_frequency_;
   // timer_ = this->create_timer(
   //   std::chrono::milliseconds(static_cast<int>(timer_duration_ms)),
@@ -161,6 +164,7 @@ VelocitySmoother::on_deactivate(const rclcpp_lifecycle::State &)
     timer_.reset();
   }
   smoothed_cmd_pub_->on_deactivate();
+  stepping_publisher_->on_deactivate();
   dyn_params_handler_.reset();
 
   // destroy bond connection
@@ -173,6 +177,7 @@ VelocitySmoother::on_cleanup(const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(get_logger(), "Cleaning up");
   smoothed_cmd_pub_.reset();
+  stepping_publisher_->reset();
   odom_smoother_.reset();
   cmd_sub_.reset();
   return nav2_util::CallbackReturn::SUCCESS;
@@ -258,12 +263,15 @@ void VelocitySmoother::smootherTimer()
     return;
   }
 
+  stepping_publisher_->request_stop();
+
   auto cmd_vel = std::make_unique<geometry_msgs::msg::Twist>();
 
   // Check for velocity timeout. If nothing received, publish zeros to apply deceleration
   if (now() - last_command_time_ > velocity_timeout_) {
     if (last_cmd_ == geometry_msgs::msg::Twist() || stopped_) {
       stopped_ = true;
+      stepping_publisher_->request_restart();
       return;
     }
     *command_ = geometry_msgs::msg::Twist();
@@ -327,6 +335,8 @@ void VelocitySmoother::smootherTimer()
     deadband_velocities_[2] ? 0.0 : cmd_vel->angular.z;
 
   smoothed_cmd_pub_->publish(std::move(cmd_vel));
+
+  stepping_publisher_->request_restart();
 }
 
 rcl_interfaces::msg::SetParametersResult

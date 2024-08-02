@@ -26,6 +26,8 @@
 #include "behaviortree_cpp_v3/loggers/bt_zmq_publisher.h"
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "nav2_util/stepping_control_utils.hpp"
 
 namespace nav2_behavior_tree
 {
@@ -49,7 +51,8 @@ public:
    */
   explicit BehaviorTreeEngine(
     const std::vector<std::string> & plugin_libraries,
-    rclcpp::Clock::SharedPtr clock);
+    rclcpp::Clock::SharedPtr clock,
+    rclcpp_lifecycle::LifecycleNode::SharedPtr node);
   virtual ~BehaviorTreeEngine() {}
 
   /**
@@ -96,6 +99,10 @@ protected:
   // The factory that will be used to dynamically construct the behavior tree
   BT::BehaviorTreeFactory factory_;
   rclcpp::Clock::SharedPtr clock_;
+  rclcpp_lifecycle::LifecycleNode::SharedPtr node_;
+
+  // stepping control
+  std::shared_ptr<nav2_util::SteppingPublisher> stepping_publisher_;
 };
 
 }  // namespace nav2_behavior_tree

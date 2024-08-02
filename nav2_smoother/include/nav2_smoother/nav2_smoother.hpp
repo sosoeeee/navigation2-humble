@@ -31,6 +31,7 @@
 #include "nav2_util/lifecycle_node.hpp"
 #include "nav2_util/robot_utils.hpp"
 #include "nav2_util/simple_action_server.hpp"
+#include "nav2_util/stepping_control_utils.hpp"
 #include "pluginlib/class_list_macros.hpp"
 #include "pluginlib/class_loader.hpp"
 
@@ -158,6 +159,9 @@ protected:
   std::shared_ptr<nav2_costmap_2d::CostmapSubscriber> costmap_sub_;
   std::shared_ptr<nav2_costmap_2d::FootprintSubscriber> footprint_sub_;
   std::shared_ptr<nav2_costmap_2d::CostmapTopicCollisionChecker> collision_checker_;
+
+  // stepping control
+  std::shared_ptr<nav2_util::SteppingPublisher> stepping_publisher_;
 };
 
 }  // namespace nav2_smoother

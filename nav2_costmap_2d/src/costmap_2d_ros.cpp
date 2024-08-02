@@ -241,6 +241,8 @@ Costmap2DROS::on_configure(const rclcpp_lifecycle::State & /*state*/)
     layered_costmap_->getCostmap(), global_frame_,
     "costmap", always_send_full_costmap_);
 
+  stepping_publisher_ = std::make_unique<SteppingPublisher>(shared_from_this(), name_);
+
   // Set the footprint
   if (use_radius_) {
     setRobotFootprint(makeFootprintFromRadius(robot_radius_));
@@ -265,6 +267,7 @@ Costmap2DROS::on_activate(const rclcpp_lifecycle::State & /*state*/)
   RCLCPP_INFO(get_logger(), "Activating");
 
   costmap_publisher_->on_activate();
+  stepping_publisher_->on_activate();
   footprint_pub_->on_activate();
 
   // First, make sure that the transform between the robot base frame
@@ -322,6 +325,7 @@ Costmap2DROS::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
   }
 
   costmap_publisher_->on_deactivate();
+  stepping_publisher_->on_deactivate();
   footprint_pub_->on_deactivate();
 
   return nav2_util::CallbackReturn::SUCCESS;
@@ -341,6 +345,7 @@ Costmap2DROS::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
   footprint_pub_.reset();
 
   costmap_publisher_.reset();
+  stepping_publisher_->reset();
   clear_costmap_service_.reset();
 
   executor_thread_.reset();
@@ -469,6 +474,8 @@ Costmap2DROS::mapUpdateLoop(double frequency)
   nav2_util::RosRate r(frequency, get_clock());    
 
   while (rclcpp::ok() && !map_update_thread_shutdown_) {
+    stepping_publisher_->request_stop();
+
     nav2_util::ExecutionTimer timer;
 
     // Execute after start() will complete plugins activation
@@ -497,6 +504,8 @@ Costmap2DROS::mapUpdateLoop(double frequency)
         }
       }
     }
+
+    stepping_publisher_->request_restart();
 
     // Make sure to sleep for the remainder of our cycle time
     r.sleep();

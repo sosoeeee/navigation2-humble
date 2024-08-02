@@ -26,6 +26,7 @@
 #include "nav2_util/node_utils.hpp"
 #include "nav2_util/odometry_utils.hpp"
 #include "nav2_util/robot_utils.hpp"
+#include "nav2_util/stepping_control_utils.hpp"
 
 namespace nav2_velocity_smoother
 {
@@ -154,6 +155,9 @@ protected:
   rclcpp::Time last_command_time_;
 
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
+
+  //stepping control
+  std::shared_ptr<nav2_util::SteppingPublisher> stepping_publisher_;
 };
 
 }  // namespace nav2_velocity_smoother

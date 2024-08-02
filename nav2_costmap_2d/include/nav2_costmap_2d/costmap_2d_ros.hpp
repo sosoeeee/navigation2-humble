@@ -51,6 +51,7 @@
 #include "nav2_costmap_2d/layered_costmap.hpp"
 #include "nav2_costmap_2d/layer.hpp"
 #include "nav2_util/lifecycle_node.hpp"
+#include "nav2_util/stepping_control_utils.hpp"
 #include "pluginlib/class_loader.hpp"
 #include "tf2/convert.h"
 #include "tf2/LinearMath/Transform.h"
@@ -405,6 +406,9 @@ protected:
 
   // Dynamic parameters handler
   OnSetParametersCallbackHandle::SharedPtr dyn_params_handler;
+
+  // stepping control
+  std::shared_ptr<nav2_util::SteppingPublisher> stepping_publisher_;
 
   /**
    * @brief Callback executed when a paramter change is detected

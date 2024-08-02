@@ -30,6 +30,7 @@
 #include "nav2_util/simple_action_server.hpp"
 #include "nav2_util/robot_utils.hpp"
 #include "nav2_util/ros_rate.hpp"
+#include "nav2_util/stepping_control_utils.hpp"
 #include "nav2_core/behavior.hpp"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
@@ -130,6 +131,8 @@ public:
 
     vel_pub_ = node->template create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
 
+    stepping_publisher_ = std::make_unique<nav2_util::SteppingPublisher>(node, behavior_name_);
+
     onConfigure();
   }
 
@@ -138,6 +141,7 @@ public:
   {
     action_server_.reset();
     vel_pub_.reset();
+    stepping_publisher_->reset();
     onCleanup();
   }
 
@@ -147,6 +151,7 @@ public:
     RCLCPP_INFO(logger_, "Activating %s", behavior_name_.c_str());
 
     vel_pub_->on_activate();
+    stepping_publisher_->on_activate();
     action_server_->activate();
     enabled_ = true;
   }
@@ -155,6 +160,7 @@ public:
   void deactivate() override
   {
     vel_pub_->on_deactivate();
+    stepping_publisher_->on_deactivate();
     action_server_->deactivate();
     enabled_ = false;
   }
@@ -180,6 +186,9 @@ protected:
 
   // Logger
   rclcpp::Logger logger_{rclcpp::get_logger("nav2_behaviors")};
+
+  // stepping control
+  std::shared_ptr<nav2_util::SteppingPublisher> stepping_publisher_;
 
   // Main execution callbacks for the action server implementation calling the Behavior's
   // onRun and cycle functions to execute a specific behavior
@@ -211,6 +220,8 @@ protected:
     nav2_util::RosRate loop_rate(cycle_frequency_, clock_);
 
     while (rclcpp::ok()) {
+      stepping_publisher_->request_stop();
+
       elasped_time_ = clock_->now() - start_time;
       if (action_server_->is_cancel_requested()) {
         RCLCPP_INFO(logger_, "Canceling %s", behavior_name_.c_str());
@@ -218,6 +229,7 @@ protected:
         result->total_elapsed_time = elasped_time_;
         action_server_->terminate_all(result);
         onActionCompletion();
+        stepping_publisher_->request_restart();
         return;
       }
 
@@ -231,6 +243,7 @@ protected:
         result->total_elapsed_time = clock_->now() - start_time;
         action_server_->terminate_current(result);
         onActionCompletion();
+        stepping_publisher_->request_restart();
         return;
       }
 
@@ -242,6 +255,7 @@ protected:
           result->total_elapsed_time = clock_->now() - start_time;
           action_server_->succeeded_current(result);
           onActionCompletion();
+          stepping_publisher_->request_restart();
           return;
 
         case Status::FAILED:
@@ -249,11 +263,13 @@ protected:
           result->total_elapsed_time = clock_->now() - start_time;
           action_server_->terminate_current(result);
           onActionCompletion();
+          stepping_publisher_->request_restart();
           return;
 
         case Status::RUNNING:
 
         default:
+          stepping_publisher_->request_restart();
           loop_rate.sleep();
           break;
       }
