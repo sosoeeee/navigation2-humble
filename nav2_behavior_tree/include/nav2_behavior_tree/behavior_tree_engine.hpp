@@ -53,7 +53,7 @@ public:
     const std::vector<std::string> & plugin_libraries,
     rclcpp::Clock::SharedPtr clock,
     rclcpp_lifecycle::LifecycleNode::SharedPtr node);
-  virtual ~BehaviorTreeEngine() {}
+  virtual ~BehaviorTreeEngine();
 
   /**
    * @brief Function to execute a BT at a specific rate
