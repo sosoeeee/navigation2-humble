@@ -241,7 +241,7 @@ Costmap2DROS::on_configure(const rclcpp_lifecycle::State & /*state*/)
     layered_costmap_->getCostmap(), global_frame_,
     "costmap", always_send_full_costmap_);
 
-  stepping_publisher_ = std::make_unique<SteppingPublisher>(shared_from_this(), name_);
+  stepping_publisher_ = std::make_unique<nav2_util::SteppingPublisher>(shared_from_this(), name_);
 
   // Set the footprint
   if (use_radius_) {

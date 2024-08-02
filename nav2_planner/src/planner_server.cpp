@@ -512,7 +512,7 @@ PlannerServer::computePlan()
     stepping_publisher_->request_restart();
 
     action_server_pose_->succeeded_current(result);
-  } catch (std::exceps tion & ex) {
+  } catch (std::exception & ex) {
     RCLCPP_WARN(
       get_logger(), "%plugin failed to plan calculation to (%.2f, %.2f): \"%s\"",
       goal->planner_id.c_str(), goal->goal.pose.position.x,
