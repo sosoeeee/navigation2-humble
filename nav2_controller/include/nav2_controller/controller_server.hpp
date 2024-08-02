@@ -33,6 +33,7 @@
 #include "nav2_util/lifecycle_node.hpp"
 #include "nav2_util/simple_action_server.hpp"
 #include "nav2_util/robot_utils.hpp"
+#include "nav2_util/stepping_control_utils.hpp"
 #include "pluginlib/class_loader.hpp"
 #include "pluginlib/class_list_macros.hpp"
 
@@ -209,11 +210,6 @@ protected:
   rcl_interfaces::msg::SetParametersResult
   dynamicParametersCallback(std::vector<rclcpp::Parameter> parameters);
 
-  /**
-   * @brief Calls stop request for gazebo stepping control
-   */
-  void publishStopRequest(bool stop);
-
   // Dynamic parameters handler
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
   std::mutex dynamic_params_lock_;
@@ -270,7 +266,7 @@ protected:
   nav_msgs::msg::Path current_path_;
 
   // stop request for gazebo stepping control
-  rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr stepping_publisher_;
+  std::shared_ptr<nav2_util::SteppingPublisher> stepping_publisher_;
 
 private:
   /**

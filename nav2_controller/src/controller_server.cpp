@@ -210,7 +210,7 @@ ControllerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
     speed_limit_topic, rclcpp::QoS(10),
     std::bind(&ControllerServer::speedLimitCallback, this, std::placeholders::_1));
 
-  stepping_publisher_ = create_publisher<std_msgs::msg::String>("stop_request", 1);
+  stepping_publisher_ = std::make_unique<nav2_util::SteppingPublisher>(shared_from_this(), "controller");
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -295,7 +295,7 @@ ControllerServer::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
   costmap_thread_.reset();
   vel_publisher_.reset();
   speed_limit_sub_.reset();
-  stepping_publisher_.reset();
+  stepping_publisher_->reset();
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -395,11 +395,11 @@ void ControllerServer::computeControl()
 
     while (rclcpp::ok()) {
       // request to stop ROS2 timer
-      publishStopRequest(true);
+      stepping_publisher_->request_stop();
 
       if (action_server_ == nullptr || !action_server_->is_server_active()) {
         RCLCPP_DEBUG(get_logger(), "Action server unavailable or inactive. Stopping.");
-        publishStopRequest(false); // restart the timer
+        stepping_publisher_->request_restart(); // restart the timer
         return;
       }
 
@@ -407,7 +407,7 @@ void ControllerServer::computeControl()
         RCLCPP_INFO(get_logger(), "Goal was canceled. Stopping the robot.");
         action_server_->terminate_all();
         publishZeroVelocity();
-        publishStopRequest(false); // restart the timer
+        stepping_publisher_->request_restart(); // restart the timer
         return;
       }
 
@@ -426,7 +426,7 @@ void ControllerServer::computeControl()
         break;
       }
 
-      publishStopRequest(false); // restart the timer
+      stepping_publisher_->request_restart(); // restart the timer
 
       if (!loop_rate.sleep()) {
         RCLCPP_WARN(
@@ -437,13 +437,13 @@ void ControllerServer::computeControl()
   } catch (nav2_core::PlannerException & e) {
     RCLCPP_ERROR(this->get_logger(), "%s", e.what());
     publishZeroVelocity();
-    publishStopRequest(false); // restart the timer
+    stepping_publisher_->request_restart(); // restart the timer
     action_server_->terminate_current();
     return;
   } catch (std::exception & e) {
     RCLCPP_ERROR(this->get_logger(), "%s", e.what());
     publishZeroVelocity();
-    publishStopRequest(false); // restart the timer
+    stepping_publisher_->request_restart(); // restart the timer
     std::shared_ptr<Action::Result> result = std::make_shared<Action::Result>();
     action_server_->terminate_current(result);
     return;
@@ -452,7 +452,7 @@ void ControllerServer::computeControl()
   RCLCPP_DEBUG(get_logger(), "Controller succeeded, setting result");
 
   publishZeroVelocity();
-  publishStopRequest(false); // restart the timer
+  stepping_publisher_->request_restart(); // restart the timer
 
   // TODO(orduno) #861 Handle a pending preemption and set controller name
   action_server_->succeeded_current();
@@ -585,19 +585,6 @@ void ControllerServer::publishVelocity(const geometry_msgs::msg::TwistStamped & 
   auto cmd_vel = std::make_unique<geometry_msgs::msg::Twist>(velocity.twist);
   if (vel_publisher_->is_activated() && vel_publisher_->get_subscription_count() > 0) {
     vel_publisher_->publish(std::move(cmd_vel));
-  }
-}
-
-void ControllerServer::publishStopRequest(bool stop)  
-{
-  auto msg = std::make_unique<std_msgs::msg::String>();
-  if (stop) {
-    msg->data = "controller_s";
-  } else {
-    msg->data = "controller_e";
-  }
-  if (stepping_publisher_->is_activated() && stepping_publisher_->get_subscription_count() > 0) {
-    stepping_publisher_->publish(std::move(msg));
   }
 }
 
