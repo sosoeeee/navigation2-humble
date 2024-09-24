@@ -51,11 +51,13 @@ char * Costmap2DPublisher::cost_translation_table_ = NULL;
 
 Costmap2DPublisher::Costmap2DPublisher(
   const nav2_util::LifecycleNode::WeakPtr & parent,
+  Costmap2DROS & costmap_ros,
   Costmap2D * costmap,
   std::string global_frame,
   std::string topic_name,
   bool always_send_full_costmap)
-: costmap_(costmap),
+: costmap_ros_(costmap_ros),
+  costmap_(costmap),
   global_frame_(global_frame),
   topic_name_(topic_name),
   active_(false),
@@ -103,6 +105,9 @@ Costmap2DPublisher::Costmap2DPublisher(
   xn_ = yn_ = 0;
   x0_ = costmap_->getSizeInCellsX();
   y0_ = costmap_->getSizeInCellsY();
+
+  // Hard code
+  Rate_ = std::make_unique<nav2_util::RosRate>(10.0, clock_);
 }
 
 Costmap2DPublisher::~Costmap2DPublisher() {}
@@ -234,6 +239,11 @@ Costmap2DPublisher::costmap_service_callback(
   const std::shared_ptr<nav2_msgs::srv::GetCostmap::Response> response)
 {
   RCLCPP_DEBUG(logger_, "Received costmap service request");
+
+  while (!costmap_ros_->isCurrent()) {
+    Rate_.sleep();
+    RCLCPP_DEBUG(logger_, "[GetCostmap Srv] Waiting for the costmap to be available");
+  }
 
   // TODO(bpwilcox): Grab correct orientation information
   tf2::Quaternion quaternion;
