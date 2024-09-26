@@ -241,8 +241,8 @@ Costmap2DPublisher::costmap_service_callback(
 {
   RCLCPP_DEBUG(logger_, "Received costmap service request");
 
-  while (!costmap_ros_->isCurrent()) {
-    Rate_.sleep();
+  while (!costmap_ros_.isCurrent()) {
+    Rate_->sleep();
     RCLCPP_DEBUG(logger_, "[GetCostmap Srv] Waiting for the costmap to be available");
   }
 
