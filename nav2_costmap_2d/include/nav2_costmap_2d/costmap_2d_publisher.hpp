@@ -54,11 +54,13 @@
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
-#include "nav2_costmap_2d/costmap_2d_ros.hpp"
 #include "nav2_util/ros_rate.hpp"
 
 namespace nav2_costmap_2d
 {
+
+class Costmap2DROS;
+
 /**
  * @class Costmap2DPublisher
  * @brief A tool to periodically publish visualization data from a Costmap2D

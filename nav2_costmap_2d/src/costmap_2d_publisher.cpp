@@ -43,6 +43,7 @@
 #include <utility>
 
 #include "nav2_costmap_2d/cost_values.hpp"
+#include "nav2_costmap_2d/costmap_2d_ros.hpp"
 
 namespace nav2_costmap_2d
 {
@@ -56,12 +57,12 @@ Costmap2DPublisher::Costmap2DPublisher(
   std::string global_frame,
   std::string topic_name,
   bool always_send_full_costmap)
-: costmap_ros_(costmap_ros),
-  costmap_(costmap),
+: costmap_(costmap),
   global_frame_(global_frame),
   topic_name_(topic_name),
   active_(false),
-  always_send_full_costmap_(always_send_full_costmap)
+  always_send_full_costmap_(always_send_full_costmap),
+  costmap_ros_(costmap_ros)
 {
   auto node = parent.lock();
   clock_ = node->get_clock();
