@@ -70,6 +70,12 @@
       <input_port name="reset_distance">Distance from the robot under which obstacles are cleared</input_port>
     </Action>
 
+    <Action ID="RecordReward">
+      <input_port name="service_name">Service name</input_port>
+      <input_port name="server_timeout">Server timeout</input_port>
+      <input_port name="state_related_reward">Additional reward related to the BT state</input_port>
+    </Action>
+
     <Action ID="ComputePathToPose">
       <input_port name="goal">Destination to plan to</input_port>
       <input_port name="start">Start pose of the path if overriding current robot pose</input_port>
@@ -203,6 +209,7 @@
     <Action ID="PredictGoal">
       <input_port name="goal">Global destination</input_port>
       <output_port name="predicted_goal">Goal predited by RL agent</output_port>
+      <output_port name="is_triggered">Whether the replanning is triggered or not</output_port>
     </Action>
 
     <!-- ############################### CONDITION NODES ############################## -->
@@ -250,6 +257,9 @@
     </Condition>
 
     <Condition ID="InitialPoseReceived">
+    </Condition>
+
+    <Condition ID="isTriggered">
     </Condition>
 
     <Condition ID="IsPathValid">

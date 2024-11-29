@@ -17,6 +17,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(nav2_util REQUIRED)
+find_package(gym_msgs REQUIRED)
 
 nav2_package()
 
@@ -41,6 +42,7 @@ set(dependencies
   std_msgs
   std_srvs
   nav2_util
+  gym_msgs
 )
 
 add_library(${library_name} SHARED
@@ -102,6 +104,9 @@ list(APPEND plugin_libs nav2_predict_goal_action_bt_node)
 add_library(nav2_clear_costmap_service_bt_node SHARED plugins/action/clear_costmap_service.cpp)
 list(APPEND plugin_libs nav2_clear_costmap_service_bt_node)
 
+add_library(nav2_record_reward_service_bt_node SHARED plugins/action/record_reward_service.cpp)
+list(APPEND plugin_libs nav2_record_reward_service_bt_node)
+
 add_library(nav2_is_stuck_condition_bt_node SHARED plugins/condition/is_stuck_condition.cpp)
 list(APPEND plugin_libs nav2_is_stuck_condition_bt_node)
 
@@ -131,6 +136,9 @@ list(APPEND plugin_libs nav2_distance_traveled_condition_bt_node)
 
 add_library(nav2_initial_pose_received_condition_bt_node SHARED plugins/condition/initial_pose_received_condition.cpp)
 list(APPEND plugin_libs nav2_initial_pose_received_condition_bt_node)
+
+add_library(nav2_is_triggered_condition_bt_node SHARED plugins/condition/is_triggered_condition.cpp)
+list(APPEND plugin_libs nav2_is_triggered_condition_bt_node)
 
 add_library(nav2_is_battery_charging_condition_bt_node SHARED plugins/condition/is_battery_charging_condition.cpp)
 list(APPEND plugin_libs nav2_is_battery_charging_condition_bt_node)

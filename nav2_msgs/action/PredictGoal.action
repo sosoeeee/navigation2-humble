@@ -2,6 +2,7 @@
 geometry_msgs/PoseStamped goal
 ---
 #result definition
+bool is_triggered                               # whether the replanning is triggereds
 geometry_msgs/PoseStamped predicted_goal
 ---
 #feedback definition

@@ -22,6 +22,7 @@ void PredictGoalAction::on_tick()
 BT::NodeStatus PredictGoalAction::on_success()
 {
   setOutput("predicted_goal", result_.result->predicted_goal);
+  setOutput("is_triggered", result_.result->is_triggered);
   return BT::NodeStatus::SUCCESS;
 }
 
@@ -29,6 +30,7 @@ BT::NodeStatus PredictGoalAction::on_aborted()
 {
   // when goal is aborted, the predicted goal will be global goal
   setOutput("predicted_goal", result_.result->predicted_goal);
+  setOutput("is_triggered", result_.result->is_triggered);
   return BT::NodeStatus::FAILURE;
 }
 
@@ -36,6 +38,7 @@ BT::NodeStatus PredictGoalAction::on_cancelled()
 {
   // when goal is cancelled, the predicted goal will be global goal
   setOutput("predicted_goal", result_.result->predicted_goal);
+  setOutput("is_triggered", result_.result->is_triggered);
   return BT::NodeStatus::SUCCESS;
 }
 
@@ -44,6 +47,7 @@ void PredictGoalAction::halt()
   geometry_msgs::msg::PoseStamped predicted_goal;
   getInput("goal", predicted_goal);
   setOutput("predicted_goal", predicted_goal);
+  setOutput("is_triggered", true);
   BtActionNode::halt();
 }
 
