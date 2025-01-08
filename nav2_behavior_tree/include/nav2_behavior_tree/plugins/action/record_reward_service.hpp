@@ -44,7 +44,7 @@ public:
       });
   }
 };
-E
+
 }  // namespace nav2_behavior_tree
 
 #endif  // NAV2_BEHAVIOR_TREE__PLUGINS__ACTION__RECORD_REWARD_SERVICE_HPP_

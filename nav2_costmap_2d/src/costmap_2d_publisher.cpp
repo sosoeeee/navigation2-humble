@@ -52,7 +52,6 @@ char * Costmap2DPublisher::cost_translation_table_ = NULL;
 
 Costmap2DPublisher::Costmap2DPublisher(
   const nav2_util::LifecycleNode::WeakPtr & parent,
-  Costmap2DROS & costmap_ros,
   Costmap2D * costmap,
   std::string global_frame,
   std::string topic_name,
@@ -61,8 +60,7 @@ Costmap2DPublisher::Costmap2DPublisher(
   global_frame_(global_frame),
   topic_name_(topic_name),
   active_(false),
-  always_send_full_costmap_(always_send_full_costmap),
-  costmap_ros_(costmap_ros)
+  always_send_full_costmap_(always_send_full_costmap)
 {
   auto node = parent.lock();
   clock_ = node->get_clock();
@@ -106,9 +104,6 @@ Costmap2DPublisher::Costmap2DPublisher(
   xn_ = yn_ = 0;
   x0_ = costmap_->getSizeInCellsX();
   y0_ = costmap_->getSizeInCellsY();
-
-  // Hard code
-  Rate_ = std::make_unique<nav2_util::RosRate>(10.0, clock_);
 }
 
 Costmap2DPublisher::~Costmap2DPublisher() {}
@@ -241,10 +236,7 @@ Costmap2DPublisher::costmap_service_callback(
 {
   RCLCPP_DEBUG(logger_, "Received costmap service request");
 
-  while (!costmap_ros_.isCurrent()) {
-    Rate_->sleep();
-    RCLCPP_DEBUG(logger_, "[GetCostmap Srv] Waiting for the costmap to be available");
-  }
+  std::unique_lock<Costmap2D::mutex_t> lock(*(costmap_->getMutex()));
 
   // TODO(bpwilcox): Grab correct orientation information
   tf2::Quaternion quaternion;

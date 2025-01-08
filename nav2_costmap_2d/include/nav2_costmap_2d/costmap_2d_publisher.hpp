@@ -54,12 +54,12 @@
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
-#include "nav2_util/ros_rate.hpp"
+// #include "nav2_util/ros_rate.hpp"
 
 namespace nav2_costmap_2d
 {
 
-class Costmap2DROS;
+// class Costmap2DROS;
 
 /**
  * @class Costmap2DPublisher
@@ -67,13 +67,12 @@ class Costmap2DROS;
  */
 class Costmap2DPublisher
 {
-public:
+public: 
   /**
    * @brief  Constructor for the Costmap2DPublisher
    */
   Costmap2DPublisher(
     const nav2_util::LifecycleNode::WeakPtr & parent,
-    Costmap2DROS & costmap_ros,
     Costmap2D * costmap,
     std::string global_frame,
     std::string topic_name,
@@ -182,8 +181,8 @@ private:
   static char * cost_translation_table_;
 
   // check the costmap is available
-  Costmap2DROS & costmap_ros_;
-  std::unique_ptr<nav2_util::RosRate> Rate_; // Rate to wait for the cone to be loaded
+  // std::shared_ptr<Costmap2DROS> costmap_ros_;
+  // std::unique_ptr<nav2_util::RosRate> Rate_; // Rate to wait for the cone to be loaded
 };
 
 }  // namespace nav2_costmap_2d

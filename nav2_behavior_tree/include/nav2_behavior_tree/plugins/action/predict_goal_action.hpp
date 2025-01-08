@@ -60,6 +60,7 @@ public:
     return providedBasicPorts(
       {
         BT::OutputPort<geometry_msgs::msg::PoseStamped>("predicted_goal", "Goal predited by RL agent"),
+        BT::OutputPort<bool>("is_triggered", "Whether the replanning is triggered or not"),
         BT::InputPort<geometry_msgs::msg::PoseStamped>("goal", "Global destination"),
       });
   }
