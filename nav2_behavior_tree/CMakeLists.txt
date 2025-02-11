@@ -200,6 +200,9 @@ list(APPEND plugin_libs nav2_round_robin_node_bt_node)
 add_library(nav2_single_trigger_bt_node SHARED plugins/decorator/single_trigger_node.cpp)
 list(APPEND plugin_libs nav2_single_trigger_bt_node)
 
+add_library(nav2_single_trigger_invert_bt_node SHARED plugins/decorator/single_trigger_invert_node.cpp)
+list(APPEND plugin_libs nav2_single_trigger_invert_bt_node)
+
 add_library(nav2_planner_selector_bt_node SHARED plugins/action/planner_selector_node.cpp)
 list(APPEND plugin_libs nav2_planner_selector_bt_node)
 

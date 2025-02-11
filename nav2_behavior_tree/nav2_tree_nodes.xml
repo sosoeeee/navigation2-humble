@@ -300,6 +300,9 @@
     <Decorator ID="SingleTrigger">
     </Decorator>
 
+    <Decorator ID="SingleTriggerInvert">
+    </Decorator>
+
     <Decorator ID="GoalUpdater">
       <input_port name="input_goal">Original goal in</input_port>
       <output_port name="output_goal">Output goal set by subscription</output_port>
