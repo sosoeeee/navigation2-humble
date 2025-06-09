@@ -584,6 +584,7 @@ void ControllerServer::publishZeroVelocity()
   velocity.header.frame_id = costmap_ros_->getBaseFrameID();
   velocity.header.stamp = now();
   publishVelocity(velocity);
+  last_valid_cmd_time_ = now();
 }
 
 bool ControllerServer::isGoalReached()
