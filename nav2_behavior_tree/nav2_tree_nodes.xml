@@ -214,8 +214,7 @@
 
     <Action ID="PredictGoal">
       <input_port name="goal">Global destination</input_port>
-      <output_port name="predicted_goal">Goal predited by RL agent</output_port>
-      <output_port name="is_triggered">Whether the replanning is triggered or not</output_port>
+      <output_port name="passed_goals">If there is a local predicted goal, it will contain the local goal and the global goal; otherwise it will contain only the global goal</output_port>
     </Action>
 
     <!-- ############################### CONDITION NODES ############################## -->

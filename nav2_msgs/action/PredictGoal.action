@@ -2,8 +2,8 @@
 geometry_msgs/PoseStamped goal
 ---
 #result definition
-bool is_triggered                               # whether the replanning is triggereds
-geometry_msgs/PoseStamped predicted_goal
+#if there is a local predicted goal, it will contain the local goal and the global goal; otherwise it will contain only the global goal
+geometry_msgs/PoseStamped[] passed_goals  
 ---
 #feedback definition
 
