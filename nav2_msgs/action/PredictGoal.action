@@ -3,7 +3,8 @@ geometry_msgs/PoseStamped goal
 ---
 #result definition
 #if there is a local predicted goal, it will contain the local goal and the global goal; otherwise it will contain only the global goal
-geometry_msgs/PoseStamped[] passed_goals  
+geometry_msgs/PoseStamped[] passed_goals
+bool is_triggered
 ---
 #feedback definition
 

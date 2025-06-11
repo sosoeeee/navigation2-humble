@@ -22,6 +22,7 @@ void PredictGoalAction::on_tick()
 BT::NodeStatus PredictGoalAction::on_success()
 {
   setOutput("passed_goals", result_.result->passed_goals);
+  setOutput("is_triggered", result_.result->is_triggered);
   return BT::NodeStatus::SUCCESS;
 }
 
@@ -29,6 +30,7 @@ BT::NodeStatus PredictGoalAction::on_aborted()
 {
   // when goal is aborted, the predicted goal will be global goal
   setOutput("passed_goals", result_.result->passed_goals);
+  setOutput("is_triggered", result_.result->is_triggered);
   return BT::NodeStatus::FAILURE;
 }
 
@@ -36,6 +38,7 @@ BT::NodeStatus PredictGoalAction::on_cancelled()
 {
   // when goal is cancelled, the predicted goal will be global goal
   setOutput("passed_goals", result_.result->passed_goals);
+  setOutput("is_triggered", result_.result->is_triggered);
   return BT::NodeStatus::SUCCESS;
 }
 
@@ -46,6 +49,7 @@ void PredictGoalAction::halt()
   getInput("goal", global_goal);
   passed_goals.push_back(global_goal);
   setOutput("passed_goals", passed_goals);
+  setOutput("is_triggered", false);
   BtActionNode::halt();
 }
 
