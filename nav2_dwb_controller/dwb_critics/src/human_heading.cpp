@@ -5,6 +5,7 @@
 #include "dwb_critics/human_heading.hpp"
 #include "dwb_core/exceptions.hpp"
 #include "pluginlib/class_list_macros.hpp"
+#include "nav2_util/node_utils.hpp"
 
 PLUGINLIB_EXPORT_CLASS(dwb_critics::HumanHeadingCritic, dwb_core::TrajectoryCritic)
 
@@ -26,7 +27,7 @@ void HumanHeadingCritic::onInit()
     std::string human_cmd_topic;
     node->get_parameter(dwb_plugin_name_ + "." + name_ + ".human_cmd_topic", human_cmd_topic);
 
-    human_cmd_sub_ = create_subscription<geometry_msgs::msg::Twist>(
+    human_cmd_sub_ = node->create_subscription<geometry_msgs::msg::Twist>(
         human_cmd_topic, rclcpp::QoS(10),
         std::bind(&HumanHeadingCritic::humanCmdCallback, this, std::placeholders::_1));
 }
@@ -42,9 +43,9 @@ double HumanHeadingCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & t
     double score = 0.0;
 
     if (!cmd_received_) {
-        RCLCPP_WARN(
-            rclcpp::get_logger("HumanHeadingCritic"),
-            "No human command received, returning score of 0.0");
+        // RCLCPP_WARN(
+        //     rclcpp::get_logger("HumanHeadingCritic"),
+        //     "No human command received, returning score of 0.0");
         return score;
     }
 
@@ -52,11 +53,11 @@ double HumanHeadingCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & t
                 std::atan2(human_cmd_.linear.x, human_cmd_.angular.z)) / M_PI;
 
     //debugging output
-    RCLCPP_INFO(
-        rclcpp::get_logger("HumanHeadingCritic"),
-        "Score for trajectory: %f (human cmd: [%f, %f], trajectory cmd: [%f, %f])",
-        score, human_cmd_.linear.x, human_cmd_.angular.z,
-        traj.velocity.x, traj.velocity.theta);
+    // RCLCPP_INFO(
+    //     rclcpp::get_logger("HumanHeadingCritic"),
+    //     "Score for trajectory: %f (human cmd: [%f, %f], trajectory cmd: [%f, %f])",
+    //     score, human_cmd_.linear.x, human_cmd_.angular.z,
+    //     traj.velocity.x, traj.velocity.theta);
 
     return score;
 }

@@ -34,6 +34,8 @@ add_library(${PROJECT_NAME} SHARED
     src/prefer_forward.cpp
     src/rotate_to_goal.cpp
     src/twirling.cpp
+    src/human_heading.cpp
+    src/human_vel.cpp
 )
 
 set(dependencies

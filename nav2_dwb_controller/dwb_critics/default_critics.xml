@@ -38,5 +38,13 @@
       <description>Penalize trajectories with rotational velocities
       </description>
     </class>
+    <class type="dwb_critics::HumanHeadingCritic" base_class_type="dwb_core::TrajectoryCritic">
+      <description>Scores trajectories based on how well they align with the human cmd in direction and rotation.
+      </description>
+    </class>
+    <class type="dwb_critics::HumanVelCritic" base_class_type="dwb_core::TrajectoryCritic">
+      <description>Scores trajectories based on how well they align with the human cmd in velocity.
+      </description>
+    </class>
   </library>
 </class_libraries>

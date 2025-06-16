@@ -21,8 +21,10 @@ public:
   double scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj) override;
 
 protected:
+  void humanCmdCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
+
   bool cmd_received_;
-  rclcpp::Subscription<geometry_msgs::msg::Twis>::SharedPtr human_cmd_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr human_cmd_sub_;
   geometry_msgs::msg::Twist human_cmd_;
 };
 }  // namespace dwb_critics
