@@ -28,9 +28,9 @@ void HumanVelCritic::onInit()
     node->get_parameter(dwb_plugin_name_ + "." + name_ + ".human_cmd_topic", human_cmd_topic);
 
     nav2_util::declare_parameter_if_not_declared(
-        node, dwb_plugin_name_ + "." + name_ + ".max_velocity",
+        node, dwb_plugin_name_ + "." + name_ + ".vel_range",
         rclcpp::ParameterValue(1.0));
-    node->get_parameter(dwb_plugin_name_ + "." + name_ + ".max_velocity", max_velocity_);
+    node->get_parameter(dwb_plugin_name_ + "." + name_ + ".vel_range", vel_range_);
 
     human_cmd_sub_ = node->create_subscription<geometry_msgs::msg::Twist>(
         human_cmd_topic, rclcpp::QoS(10),
@@ -54,7 +54,7 @@ double HumanVelCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj)
         return score;
     }
 
-    score = abs(traj.velocity.x - human_cmd_.linear.x) / max_velocity_;
+    score = abs(traj.velocity.x - human_cmd_.linear.x) / vel_range_;
 
     //debugging output
     // RCLCPP_INFO(

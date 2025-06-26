@@ -27,6 +27,11 @@ void HumanHeadingCritic::onInit()
     std::string human_cmd_topic;
     node->get_parameter(dwb_plugin_name_ + "." + name_ + ".human_cmd_topic", human_cmd_topic);
 
+    nav2_util::declare_parameter_if_not_declared(
+        node, dwb_plugin_name_ + "." + name_ + ".omega_range",
+        rclcpp::ParameterValue(1.0));
+    node->get_parameter(dwb_plugin_name_ + "." + name_ + ".omega_range", omega_range_);
+
     human_cmd_sub_ = node->create_subscription<geometry_msgs::msg::Twist>(
         human_cmd_topic, rclcpp::QoS(10),
         std::bind(&HumanHeadingCritic::humanCmdCallback, this, std::placeholders::_1));
@@ -49,8 +54,14 @@ double HumanHeadingCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & t
         return score;
     }
 
-    score = abs(std::atan2(traj.velocity.x, traj.velocity.theta) -
-                std::atan2(human_cmd_.linear.x, human_cmd_.angular.z)) / M_PI;
+    if (human_cmd_.linear.x == 0.0){
+        score = abs(traj.velocity.theta - human_cmd_.angular.z) / omega_range_;
+    }
+    else
+    {
+        score = abs(std::atan2(traj.velocity.x, traj.velocity.theta) -
+                    std::atan2(human_cmd_.linear.x, human_cmd_.angular.z)) / M_PI;
+    }
 
     //debugging output
     // RCLCPP_INFO(

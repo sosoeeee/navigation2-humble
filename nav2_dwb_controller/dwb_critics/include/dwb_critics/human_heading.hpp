@@ -26,6 +26,8 @@ protected:
   bool cmd_received_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr human_cmd_sub_;
   geometry_msgs::msg::Twist human_cmd_;
+
+  double omega_range_;
 };
 }  // namespace dwb_critics
 

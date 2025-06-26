@@ -495,6 +495,10 @@ DWBLocalPlanner::transformGlobalPlan(
 
   // Find the first pose in the plan (upto prune_point) that's less than transform_start_threshold
   // from the robot.
+
+  // Attention: when no point is found, std::find_if returns the end of the range, that is 
+  // transformation_begin == prune_point.
+  // In this case, we can not prune the global plan
   auto transformation_begin = std::find_if(
     begin(global_plan_.poses), prune_point,
     [&](const auto & global_plan_pose) {
@@ -533,13 +537,16 @@ DWBLocalPlanner::transformGlobalPlan(
 
   // Remove the portion of the global plan that we've already passed so we don't
   // process it on the next iteration.
-  if (prune_plan_) {
+  if (prune_plan_ && transformation_begin != prune_point) {
     global_plan_.poses.erase(begin(global_plan_.poses), transformation_begin);
     pub_->publishGlobalPlan(global_plan_);
   }
 
   if (transformed_plan.poses.empty()) {
-    throw nav2_core::PlannerException("Resulting plan has 0 poses in it.");
+    // throw nav2_core::PlannerException("Resulting plan has 0 poses in it.");
+    RCLCPP_WARN(
+      logger_, "Resulting plan has 0 poses in it. "
+      "This can happen if the robot is too far from the global plan.");
   }
   return transformed_plan;
 }
