@@ -19,49 +19,57 @@ void HumanVelCritic::onInit()
         throw std::runtime_error{"Failed to lock node"};
     }
 
-    cmd_received_ = false;
-
-    nav2_util::declare_parameter_if_not_declared(
-        node, dwb_plugin_name_ + "." + name_ + ".human_cmd_topic",
-        rclcpp::ParameterValue("human_cmd"));
-    std::string human_cmd_topic;
-    node->get_parameter(dwb_plugin_name_ + "." + name_ + ".human_cmd_topic", human_cmd_topic);
-
     nav2_util::declare_parameter_if_not_declared(
         node, dwb_plugin_name_ + "." + name_ + ".vel_range",
         rclcpp::ParameterValue(1.0));
     node->get_parameter(dwb_plugin_name_ + "." + name_ + ".vel_range", vel_range_);
 
-    human_cmd_sub_ = node->create_subscription<geometry_msgs::msg::Twist>(
-        human_cmd_topic, rclcpp::QoS(10),
-        std::bind(&HumanVelCritic::humanCmdCallback, this, std::placeholders::_1));
+    nav2_util::declare_parameter_if_not_declared(
+        node, dwb_plugin_name_ + "." + name_ + ".v_max",
+        rclcpp::ParameterValue(0.26));
+    node->get_parameter(dwb_plugin_name_ + "." + name_ + ".v_max", v_max_);
+
+    nav2_util::declare_parameter_if_not_declared(
+        node, dwb_plugin_name_ + "." + name_ + ".v_min",
+        rclcpp::ParameterValue(-0.13));
+    node->get_parameter(dwb_plugin_name_ + "." + name_ + ".v_min", v_min_);
 }
 
-void HumanVelCritic::humanCmdCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
-{
-    human_cmd_ = *msg;
-    cmd_received_ = true;
-}
-
-double HumanVelCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj)
+double HumanVelCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & human_cmd)
 {
     double score = 0.0;
-
-    if (!cmd_received_) {
-        // RCLCPP_WARN(
-        //     rclcpp::get_logger("HumanVelCritic"),
-        //     "No human command received, returning score of 0.0");
-        return score;
-    }
-
-    score = abs(traj.velocity.x - human_cmd_.linear.x) / vel_range_;
+    score = abs(traj.velocity.x - human_cmd.linear.x) / vel_range_;
 
     //debugging output
     // RCLCPP_INFO(
     //     rclcpp::get_logger("HumanVelCritic"),
     //     "Score for trajectory: %f (human cmd: [%f, %f], trajectory cmd: [%f, %f])",
-    //     score, human_cmd_.linear.x, human_cmd_.angular.z,
+    //     score, human_cmd.linear.x, human_cmd.angular.z,
     //     traj.velocity.x, traj.velocity.theta);
+    return score;
+}
+
+double HumanVelCritic::scoreTrajectory(
+    const dwb_msgs::msg::Trajectory2D & traj, 
+    const geometry_msgs::msg::Twist & human_cmd,
+    double avg_clearance)
+{
+    double score = 0.0;
+
+    if (traj.velocity.x >= 0){
+        double amplitude = traj.velocity.x / v_max_;
+    }
+    else{
+        double amplitude = traj.velocity.x / v_min_;    
+    }
+
+    score = (1 - avg_clearance) * abs(traj.velocity.x - human_cmd.linear.x) / vel_range_ + avg_clearance * amplitude;
+
+    //debugging output
+    RCLCPP_INFO(
+        rclcpp::get_logger("HumanVelCritic"),
+        "Score for trajectory: %f, avgClearance: %f",
+        score, avg_clearance);
     return score;
 }
 

@@ -18,15 +18,9 @@ class HumanHeadingCritic : public dwb_core::TrajectoryCritic
 {
 public:
   void onInit() override;
-  double scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj) override;
+  double scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & human_cmd) override;
 
 protected:
-  void humanCmdCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
-
-  bool cmd_received_;
-  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr human_cmd_sub_;
-  geometry_msgs::msg::Twist human_cmd_;
-
   double omega_range_;
 };
 }  // namespace dwb_critics

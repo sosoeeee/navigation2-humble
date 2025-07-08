@@ -123,6 +123,26 @@ public:
    * @param best_score If positive, the threshold for early termination
    * @return The full scoring of the input trajectory
    */
+  virtual dwb_msgs::msg::TrajectoryScore scoreTrajectorySharedDWA(
+    const dwb_msgs::msg::Trajectory2D & traj,
+    const geometry_msgs::msg::Twist & human_cmd,
+    double best_score = -1,
+    double avg_clearance = 0.0,
+    double human_cmd_clearance = 0.0);
+
+  virtual double getTrajClearance(const dwb_msgs::msg::Trajectory2D & traj);
+
+  /**
+   * @brief Score a given command. Can be used for testing.
+   *
+   * Given a trajectory, calculate the score where lower scores are better.
+   * If the given (positive) score exceeds the best_score, calculation may be cut short, as the
+   * score can only go up from there.
+   *
+   * @param traj Trajectory to check
+   * @param best_score If positive, the threshold for early termination
+   * @return The full scoring of the input trajectory
+   */
   virtual dwb_msgs::msg::TrajectoryScore scoreTrajectory(
     const dwb_msgs::msg::Trajectory2D & traj,
     double best_score = -1);
@@ -237,6 +257,35 @@ protected:
   std::string dwb_plugin_name_;
 
   bool short_circuit_trajectory_evaluation_;
+
+  // shared DWA
+  bool cmd_received_;
+  std::string human_cmd_topic_;
+  double cmd_period_;
+  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr human_cmd_sub_;
+  geometry_msgs::msg::Twist human_cmd_;
+  rclcpp::Time last_human_cmd_time_;
+  nav2_costmap_2d::Costmap2D * costmap_;
+  double human_cmd_factor_;
+
+  // mutex
+  std::mutex human_cmd_mutex_;
+
+  // callback
+  void humanCmdCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
+
+  /**
+   * @brief Get the clearance of the human command
+   *
+   * @param pose Current pose (costmap frame)
+   * @param velocity Current velocity
+   * @param human_cmd The human command
+   * @return Clearance of the human command
+   */
+  double getHumanClearance(
+    const geometry_msgs::msg::PoseStamped & pose,
+    const geometry_msgs::msg::Twist & velocity,
+    const geometry_msgs::msg::Twist & human_cmd);
 };
 
 }  // namespace dwb_core

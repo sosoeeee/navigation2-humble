@@ -19,48 +19,22 @@ void HumanHeadingCritic::onInit()
         throw std::runtime_error{"Failed to lock node"};
     }
 
-    cmd_received_ = false;
-
-    nav2_util::declare_parameter_if_not_declared(
-        node, dwb_plugin_name_ + "." + name_ + ".human_cmd_topic",
-        rclcpp::ParameterValue("human_cmd"));
-    std::string human_cmd_topic;
-    node->get_parameter(dwb_plugin_name_ + "." + name_ + ".human_cmd_topic", human_cmd_topic);
-
     nav2_util::declare_parameter_if_not_declared(
         node, dwb_plugin_name_ + "." + name_ + ".omega_range",
         rclcpp::ParameterValue(1.0));
     node->get_parameter(dwb_plugin_name_ + "." + name_ + ".omega_range", omega_range_);
-
-    human_cmd_sub_ = node->create_subscription<geometry_msgs::msg::Twist>(
-        human_cmd_topic, rclcpp::QoS(10),
-        std::bind(&HumanHeadingCritic::humanCmdCallback, this, std::placeholders::_1));
 }
 
-void HumanHeadingCritic::humanCmdCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
-{
-    human_cmd_ = *msg;
-    cmd_received_ = true;
-}
-
-double HumanHeadingCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj)
+double HumanHeadingCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & human_cmd)
 {
     double score = 0.0;
-
-    if (!cmd_received_) {
-        // RCLCPP_WARN(
-        //     rclcpp::get_logger("HumanHeadingCritic"),
-        //     "No human command received, returning score of 0.0");
-        return score;
-    }
-
-    if (human_cmd_.linear.x == 0.0){
-        score = abs(traj.velocity.theta - human_cmd_.angular.z) / omega_range_;
+    if (human_cmd.linear.x == 0.0){
+        score = abs(traj.velocity.theta - human_cmd.angular.z) / omega_range_;
     }
     else
     {
         score = abs(std::atan2(traj.velocity.x, traj.velocity.theta) -
-                    std::atan2(human_cmd_.linear.x, human_cmd_.angular.z)) / M_PI;
+                    std::atan2(human_cmd.linear.x, human_cmd.angular.z)) / M_PI;
     }
 
     //debugging output
