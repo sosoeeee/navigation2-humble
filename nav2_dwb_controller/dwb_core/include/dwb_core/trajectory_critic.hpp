@@ -169,6 +169,23 @@ public:
    */
   virtual void addCriticVisualization(std::vector<std::pair<std::string, std::vector<float>>> &) {}
 
+  // special used for shared DWA (will be reloaded)
+  virtual double scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & human_cmd, double /*avg_clearance*/) 
+  {
+    RCLCPP_WARN(
+      rclcpp::get_logger("TrajectoryCritic"),
+      "This function should not be called !");
+    return scoreTrajectory(traj, human_cmd);
+  }
+
+  virtual double scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & /*human_cmd*/)
+  {
+    RCLCPP_WARN(
+      rclcpp::get_logger("TrajectoryCritic"),
+      "This function should not be called !");
+    return scoreTrajectory(traj);
+  }
+
   std::string getName()
   {
     return name_;

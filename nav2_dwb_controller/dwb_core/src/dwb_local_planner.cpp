@@ -378,25 +378,25 @@ DWBLocalPlanner::coreScoringAlgorithm(
   double avrClearance = 1.0;
 
   // activate high speed constrain in clutter env
-  // double clearance_, k = 0;
-  // traj_generator_->startNewIteration(velocity);
-  // while (traj_generator_->hasMoreTwists()) {
-  //   twist = traj_generator_->nextTwist();
-  //   traj = traj_generator_->generateTrajectory(pose, velocity, twist);
-  //   try {
-  //     clearance_  = getTrajClearance(traj);
-  //     avrClearance += clearance_;
-  //     k++;
-  //   } catch (const std::exception & e) {
-  //     // DEBUG
-  //     RCLCPP_WARN(rclcpp::get_logger("DWBLocalPlanner"), "Failed to get trajectory clearance: %s", e.what());
-  //   }
-  // }
-  // if (k > 0) {
-  //   avrClearance /= k;
-  //   // DEBUG
-  //   RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), "Average trajectory clearance: %f", avrClearance);
-  // }
+  double clearance_, k = 0;
+  traj_generator_->startNewIteration(velocity);
+  while (traj_generator_->hasMoreTwists()) {
+    twist = traj_generator_->nextTwist();
+    traj = traj_generator_->generateTrajectory(pose, velocity, twist);
+    try {
+      clearance_  = getTrajClearance(traj);
+      avrClearance += clearance_;
+      k++;
+    } catch (const std::exception & e) {
+      // DEBUG
+      RCLCPP_ERROR(rclcpp::get_logger("DWBLocalPlanner"), "Failed to get trajectory clearance: %s", e.what());
+    }
+  }
+  if (k > 0) {
+    avrClearance /= k;
+    // DEBUG
+    // RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), "Average trajectory clearance: %f", avrClearance);
+  }
 
   // get human cmd clearance
   geometry_msgs::msg::Twist local_human_cmd; 
@@ -404,7 +404,7 @@ DWBLocalPlanner::coreScoringAlgorithm(
   // mutex for human command
   {
     std::lock_guard<std::mutex> lock(human_cmd_mutex_);
-    if (cmd_received_ && (node_->now() - last_human_cmd_time_).seconds() < cmd_period_) {
+    if (cmd_received_ && (node_.lock()->now() - last_human_cmd_time_).seconds() < cmd_period_) {
       local_human_cmd = human_cmd_;
       local_human_cmd_set = true;
     }
@@ -414,8 +414,9 @@ DWBLocalPlanner::coreScoringAlgorithm(
   // Use the most recent human command
   if (local_human_cmd_set)
   {
-    traj = traj_generator_->generateTrajectory(pose, velocity, local_human_cmd);
+    traj = traj_generator_->generateTrajectory(pose, velocity, nav_2d_utils::twist3Dto2D(local_human_cmd));
     human_cmd_clearance = std::pow(getTrajClearance(traj), human_cmd_factor_);
+    avrClearance = std::pow(avrClearance, human_cmd_factor_);
   }
 
   traj_generator_->startNewIteration(velocity);
@@ -425,7 +426,7 @@ DWBLocalPlanner::coreScoringAlgorithm(
 
     try {
       // dwb_msgs::msg::TrajectoryScore score = scoreTrajectory(traj, best.total);
-      dwb_msgs::msg::TrajectoryScore score = scoreTrajectorySharedDWA(traj, best.total, local_human_cmd, avrClearance, human_cmd_clearance);
+      dwb_msgs::msg::TrajectoryScore score = scoreTrajectorySharedDWA(traj, local_human_cmd, avrClearance, human_cmd_clearance);
 
       tracker.addLegalTrajectory();
       if (results) {
@@ -510,7 +511,6 @@ dwb_msgs::msg::TrajectoryScore
 DWBLocalPlanner::scoreTrajectorySharedDWA(
   const dwb_msgs::msg::Trajectory2D & traj,
   const geometry_msgs::msg::Twist & human_cmd,
-  double best_score,
   double avg_clearance,
   double human_cmd_clearance)
 {
@@ -522,6 +522,10 @@ DWBLocalPlanner::scoreTrajectorySharedDWA(
 
   clearance = getTrajClearance(traj);
 
+  if (clearance < 1e-3) {
+    throw dwb_core::IllegalTrajectoryException("clearance", "Trajectory is invalid");
+  }
+
   for (TrajectoryCritic::Ptr & critic : critics_) {
     dwb_msgs::msg::CriticScore cs;
     cs.name = critic->getName();
@@ -531,33 +535,65 @@ DWBLocalPlanner::scoreTrajectorySharedDWA(
       score.scores.push_back(cs);
       continue;
     }
+
+    double critic_score = 0.0;
     
     if (critic->getName() == "HumanVel") {
       critic_score = critic->scoreTrajectory(traj, human_cmd, avg_clearance);
       human_cmd_score += critic_score * cs.scale;
+
+      // RCLCPP_INFO(
+      //   rclcpp::get_logger("DWBLocalPlanner"),
+      //   "scoreTrajectorySharedDWA: HumanVel critic score %f",
+      //   critic_score);
     }
     else if (critic->getName() == "HumanHeading") {
       critic_score = critic->scoreTrajectory(traj, human_cmd);
       human_cmd_score += critic_score * cs.scale;
+
+      // RCLCPP_INFO(
+      //   rclcpp::get_logger("DWBLocalPlanner"),
+      //   "scoreTrajectorySharedDWA: HumanHeading critic score %f",
+      //   critic_score);
     }
     else {
       critic_score = critic->scoreTrajectory(traj);
       task_cmd_score += critic_score * cs.scale;
+
+      // RCLCPP_INFO(
+      //   rclcpp::get_logger("DWBLocalPlanner"),
+      //   "scoreTrajectorySharedDWA: Task cmd critic %s score %f scaled by %f",
+      //   critic->getName().c_str(), critic_score, cs.scale);
     }
 
     cs.raw_score = critic_score;
     score.scores.push_back(cs);
   }
 
-  score.total = 1 - clearance + clearance * (
-    human_cmd_score * human_cmd_clearance + task_cmd_score * (1 - human_cmd_clearance));
+  // score.total = 1 - clearance + clearance * (
+  //   human_cmd_score * human_cmd_clearance + task_cmd_score * (1 - human_cmd_clearance));
 
-  // debug
-  RCLCPP_DEBUG(
-    rclcpp::get_logger("DWBLocalPlanner"),
-    "scoreTrajectorySharedDWA: clearance %f, human_cmd_score %f, task_cmd_score %f, "
-    "human_cmd_clearance %f, score.total %f",
-    clearance, human_cmd_score, task_cmd_score, human_cmd_clearance, score.total);
+  // switch control
+  if (human_cmd_clearance < 1e-3)
+  {
+    score.total = 1 - clearance + clearance * task_cmd_score;
+  }
+  else
+  {
+    score.total = 1 - clearance + clearance * human_cmd_score;
+  }
+
+  // // debug
+  // RCLCPP_INFO(
+  //   rclcpp::get_logger("DWBLocalPlanner"),
+  //   "human_cmd_score %f, "
+  //   "human_cmd_clearance %f, avr_clearnce %f, ",
+  //   human_cmd_score, human_cmd_clearance, avg_clearance);
+  // RCLCPP_INFO(
+  //   rclcpp::get_logger("DWBLocalPlanner"),
+  //   "scoreTrajectorySharedDWA: clearance %f, human_cmd_score %f, task_cmd_score %f, "
+  //   "human_cmd_clearance %f, score.total %f",
+  //   clearance, human_cmd_score, task_cmd_score, human_cmd_clearance, score.total);
 
   return score;
 }
@@ -666,11 +702,25 @@ DWBLocalPlanner::transformGlobalPlan(
   }
 
   if (transformed_plan.poses.empty()) {
-    // throw nav2_core::PlannerException("Resulting plan has 0 poses in it.");
-    RCLCPP_WARN(
-      logger_, "Resulting plan has 0 poses in it. "
-      "This can happen if the robot is too far from the global plan.");
+    if (last_transformed_plan_.poses.empty())
+    {
+      throw nav2_core::PlannerException("Resulting plan has 0 poses in it.");
+    }
+    else
+    {
+      // If we have a previous plan, return it instead of an empty one.
+      transformed_plan = last_transformed_plan_;
+      RCLCPP_WARN(
+        logger_, "Resulting plan has 0 poses in it. "
+        "Using the last transformed plan instead.");
+    }
   }
+  else
+  {
+    // Save the last transformed plan for the next iteration
+    last_transformed_plan_ = transformed_plan;
+  }
+
   return transformed_plan;
 }
 
@@ -681,15 +731,17 @@ void DWBLocalPlanner::humanCmdCallback(const geometry_msgs::msg::Twist::SharedPt
 
     human_cmd_ = *msg;
     cmd_received_ = true;
-    last_human_cmd_time_ = node_->now();
+
+    auto node = node_.lock();
+    last_human_cmd_time_ = node->now();
 }
 
 double DWBLocalPlanner::getTrajClearance(const dwb_msgs::msg::Trajectory2D & traj)
 {
   double clearance = 0.0;
   unsigned int cell_x, cell_y;
-  if (!costmap_->worldToMap(traj.poses.back().pose.position.x,
-      traj.poses.back().pose.position.y, cell_x, cell_y))
+  if (!costmap_->worldToMap(traj.poses.back().x,
+      traj.poses.back().y, cell_x, cell_y))
   {
     return clearance;
   }
@@ -701,7 +753,7 @@ double DWBLocalPlanner::getTrajClearance(const dwb_msgs::msg::Trajectory2D & tra
     return clearance;
   }
 
-  return 1 - static_cast<double>(cost) / 255.0;
+  return 1.0 - static_cast<double>(cost) / 255.0;
 }
 
 }  // namespace dwb_core

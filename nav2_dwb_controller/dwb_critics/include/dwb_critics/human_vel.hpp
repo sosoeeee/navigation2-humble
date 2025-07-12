@@ -18,6 +18,7 @@ class HumanVelCritic : public dwb_core::TrajectoryCritic
 {
 public:
   void onInit() override;
+  double scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj) override;
   double scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & human_cmd) override;
   double scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & human_cmd, double avg_clearance) override;
 

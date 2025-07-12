@@ -25,6 +25,11 @@ void HumanHeadingCritic::onInit()
     node->get_parameter(dwb_plugin_name_ + "." + name_ + ".omega_range", omega_range_);
 }
 
+double HumanHeadingCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj)
+{
+    return scoreTrajectory(traj, geometry_msgs::msg::Twist{});
+}
+
 double HumanHeadingCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & human_cmd)
 {
     double score = 0.0;

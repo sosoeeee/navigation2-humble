@@ -126,7 +126,6 @@ public:
   virtual dwb_msgs::msg::TrajectoryScore scoreTrajectorySharedDWA(
     const dwb_msgs::msg::Trajectory2D & traj,
     const geometry_msgs::msg::Twist & human_cmd,
-    double best_score = -1,
     double avg_clearance = 0.0,
     double human_cmd_clearance = 0.0);
 
@@ -267,6 +266,7 @@ protected:
   rclcpp::Time last_human_cmd_time_;
   nav2_costmap_2d::Costmap2D * costmap_;
   double human_cmd_factor_;
+  nav_2d_msgs::msg::Path2D last_transformed_plan_;
 
   // mutex
   std::mutex human_cmd_mutex_;

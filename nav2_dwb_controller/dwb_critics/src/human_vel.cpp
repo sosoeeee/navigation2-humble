@@ -35,6 +35,11 @@ void HumanVelCritic::onInit()
     node->get_parameter(dwb_plugin_name_ + "." + name_ + ".v_min", v_min_);
 }
 
+double HumanVelCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj)
+{
+    return scoreTrajectory(traj, geometry_msgs::msg::Twist{});
+}
+
 double HumanVelCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & human_cmd)
 {
     double score = 0.0;
@@ -55,18 +60,19 @@ double HumanVelCritic::scoreTrajectory(
     double avg_clearance)
 {
     double score = 0.0;
+    double amplitude = 0.0;
 
     if (traj.velocity.x >= 0){
-        double amplitude = traj.velocity.x / v_max_;
+        amplitude = traj.velocity.x / v_max_;
     }
     else{
-        double amplitude = traj.velocity.x / v_min_;    
+        amplitude = traj.velocity.x / v_min_;    
     }
 
-    score = (1 - avg_clearance) * abs(traj.velocity.x - human_cmd.linear.x) / vel_range_ + avg_clearance * amplitude;
+    score = avg_clearance * abs(traj.velocity.x - human_cmd.linear.x) / vel_range_ + (1 - avg_clearance) * amplitude;
 
     //debugging output
-    RCLCPP_INFO(
+    RCLCPP_DEBUG(
         rclcpp::get_logger("HumanVelCritic"),
         "Score for trajectory: %f, avgClearance: %f",
         score, avg_clearance);

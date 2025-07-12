@@ -507,6 +507,13 @@ void ControllerServer::computeAndPublishVelocity()
     }
   }
 
+  // RCLCPP_INFO(
+  //   get_logger(), "Last valid command time: %.2f, Velocity: [%.2f, %.2f, %.2f]",
+  //   last_valid_cmd_time_.seconds(),
+  //   cmd_vel_2d.twist.linear.x,
+  //   cmd_vel_2d.twist.linear.y,
+  //   cmd_vel_2d.twist.angular.z);
+
   std::shared_ptr<Action::Feedback> feedback = std::make_shared<Action::Feedback>();
   feedback->speed = std::hypot(cmd_vel_2d.twist.linear.x, cmd_vel_2d.twist.linear.y);
 
@@ -584,7 +591,6 @@ void ControllerServer::publishZeroVelocity()
   velocity.header.frame_id = costmap_ros_->getBaseFrameID();
   velocity.header.stamp = now();
   publishVelocity(velocity);
-  last_valid_cmd_time_ = now();
 }
 
 bool ControllerServer::isGoalReached()
