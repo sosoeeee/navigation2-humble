@@ -324,5 +324,9 @@
     <Decorator ID="GoalUpdatedController">
     </Decorator>
 
+    <Decorator ID="HumanInvolved">
+      <input_port name="human_involved_path_length">Path length to consider human involved</input_port>
+    </Decorator>
+
   </TreeNodesModel>
 </root>
