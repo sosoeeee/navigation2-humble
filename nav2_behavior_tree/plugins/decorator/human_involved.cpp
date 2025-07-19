@@ -62,7 +62,7 @@ inline BT::NodeStatus HumanInvolved::tick()
 void
 HumanInvolved::callback_human_involved(const std_msgs::msg::String::SharedPtr msg)
 {
-   if (static_cast<int>(msg->data) > human_involved_path_length_) {
+   if (std::stoi(msg->data) > human_involved_path_length_) {
      human_involving_ = true;
    }
    else {
