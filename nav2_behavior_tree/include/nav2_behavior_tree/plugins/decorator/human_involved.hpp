@@ -55,7 +55,9 @@ private:
 
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr human_involved_sub_;
   bool human_involving_ = false;
+  bool first_tick_ = true;
   int human_involved_path_length_ = 0;
+  BT::NodeStatus child_node_status_ = BT::NodeStatus::IDLE;
 
   rclcpp::Node::SharedPtr node_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;

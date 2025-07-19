@@ -39,10 +39,10 @@ inline BT::NodeStatus HumanInvolved::tick()
 {
   callback_group_executor_.spin_some();
 
-  if (human_involving_ || child_node_->executeTick() == BT::NodeStatus::RUNNING) {
-    
-    const BT::NodeStatus child_state = child_node_->executeTick();
-    switch (child_state) {
+  if (human_involving_ || child_node_status_ == BT::NodeStatus::RUNNING || first_tick_) {
+    first_tick_ = false;
+    child_node_status_ = child_node_->executeTick();
+    switch (child_node_status_) {
       case BT::NodeStatus::RUNNING:
         return BT::NodeStatus::RUNNING;
 
@@ -62,6 +62,8 @@ inline BT::NodeStatus HumanInvolved::tick()
 void
 HumanInvolved::callback_human_involved(const std_msgs::msg::String::SharedPtr msg)
 {
+  std::cout << "[BT_Decorator] Received human involved path length: " << msg->data << std::endl;
+
    if (std::stoi(msg->data) > human_involved_path_length_) {
      human_involving_ = true;
    }
