@@ -40,6 +40,12 @@
 
 namespace dwb_critics
 {
+void PathDistCritic::onInit()
+{
+  MapGridCritic::onInit();
+  stop_on_failure_ = false;
+}
+
 bool PathDistCritic::prepare(
   const geometry_msgs::msg::Pose2D &, const nav_2d_msgs::msg::Twist2D &,
   const geometry_msgs::msg::Pose2D &,
@@ -77,11 +83,11 @@ bool PathDistCritic::prepare(
     }
   }
   if (!started_path) {
-    // RCLCPP_ERROR(
-    //   rclcpp::get_logger("PathDistCritic"),
-    //   "None of the %d first of %zu (%zu) points of the global plan were in "
-    //   "the local costmap and free",
-    //   i, adjusted_global_plan.poses.size(), global_plan.poses.size());
+    RCLCPP_ERROR(
+      rclcpp::get_logger("PathDistCritic"),
+      "None of the %d first of %zu (%zu) points of the global plan were in "
+      "the local costmap and free",
+      i, adjusted_global_plan.poses.size(), global_plan.poses.size());
     return false;
   }
 

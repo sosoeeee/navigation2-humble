@@ -254,6 +254,10 @@ DWBLocalPlanner::setPlan(const nav_msgs::msg::Path & path)
 
   traj_generator_->reset();
 
+  // reset shared DWA
+  cmd_received_ = false;
+  last_transformed_plan_.poses.clear();
+
   pub_->publishGlobalPlan(path2d);
   global_plan_ = path2d;
 }
@@ -519,6 +523,7 @@ DWBLocalPlanner::scoreTrajectorySharedDWA(
   double clearance = 0.0;
   double human_cmd_score = 0.0; // HumanVel and HumanHeading critics
   double task_cmd_score = 0.0;
+  bool have_task_critics = false;
 
   clearance = getTrajClearance(traj);
 
@@ -557,6 +562,7 @@ DWBLocalPlanner::scoreTrajectorySharedDWA(
       //   critic_score);
     }
     else {
+      have_task_critics = true;
       critic_score = critic->scoreTrajectory(traj);
       task_cmd_score += critic_score * cs.scale;
 
@@ -577,6 +583,15 @@ DWBLocalPlanner::scoreTrajectorySharedDWA(
   if (human_cmd_clearance < 1e-3)
   {
     score.total = task_cmd_score;
+
+    // if there no task related critics, when no human cmd, set all traj velocity to zero 
+    // (Attention: this is a trick to implement human-leading shared DWA)
+    if (!have_task_critics)
+    {
+      score.traj.velocity.x = 0.0;
+      score.traj.velocity.y = 0.0;
+      score.traj.velocity.theta = 0.0;
+    }
   }
   else
   {

@@ -40,6 +40,12 @@
 
 namespace dwb_critics
 {
+void GoalDistCritic::onInit()
+{
+  MapGridCritic::onInit();
+  stop_on_failure_ = false;
+}
+
 bool GoalDistCritic::prepare(
   const geometry_msgs::msg::Pose2D &, const nav_2d_msgs::msg::Twist2D &,
   const geometry_msgs::msg::Pose2D &,
@@ -94,9 +100,9 @@ bool GoalDistCritic::getLastPoseOnCostmap(
   if (started_path) {
     return true;
   } else {
-    // RCLCPP_ERROR(
-    //   rclcpp::get_logger(
-    //     "GoalDistCritic"), "None of the points of the global plan were in the local costmap.");
+    RCLCPP_ERROR(
+      rclcpp::get_logger(
+        "GoalDistCritic"), "None of the points of the global plan were in the local costmap.");
     return false;
   }
 }
