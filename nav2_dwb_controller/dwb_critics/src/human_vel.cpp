@@ -33,6 +33,11 @@ void HumanVelCritic::onInit()
         node, dwb_plugin_name_ + "." + name_ + ".v_min",
         rclcpp::ParameterValue(-0.13));
     node->get_parameter(dwb_plugin_name_ + "." + name_ + ".v_min", v_min_);
+
+    nav2_util::declare_parameter_if_not_declared(
+        node, dwb_plugin_name_ + "." + name_ + ".low_threshold",
+        rclcpp::ParameterValue(0.1));
+    node->get_parameter(dwb_plugin_name_ + "." + name_ + ".low_threshold", low_threshold_);
 }
 
 double HumanVelCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj)
@@ -69,7 +74,9 @@ double HumanVelCritic::scoreTrajectory(
         amplitude = traj.velocity.x / v_min_;    
     }
 
-    score = avg_clearance * abs(traj.velocity.x - human_cmd.linear.x) / vel_range_ + (1 - avg_clearance) * amplitude;
+    double amplitude_score = std::max(0.0, amplitude - low_threshold_);
+
+    score = avg_clearance * abs(traj.velocity.x - human_cmd.linear.x) / vel_range_ + (1 - avg_clearance) * amplitude_score;
 
     //debugging output
     RCLCPP_DEBUG(

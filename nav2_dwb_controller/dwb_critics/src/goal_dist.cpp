@@ -94,9 +94,9 @@ bool GoalDistCritic::getLastPoseOnCostmap(
   if (started_path) {
     return true;
   } else {
-    RCLCPP_ERROR(
-      rclcpp::get_logger(
-        "GoalDistCritic"), "None of the points of the global plan were in the local costmap.");
+    // RCLCPP_ERROR(
+    //   rclcpp::get_logger(
+    //     "GoalDistCritic"), "None of the points of the global plan were in the local costmap.");
     return false;
   }
 }

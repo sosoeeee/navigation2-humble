@@ -25,6 +25,7 @@ public:
 protected:
   double vel_range_;
   double v_max_, v_min_;
+  double low_threshold_;
 };
 }  // namespace dwb_critics
 

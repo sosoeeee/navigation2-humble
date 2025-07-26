@@ -62,7 +62,7 @@ inline BT::NodeStatus HumanInvolved::tick()
 void
 HumanInvolved::callback_human_involved(const std_msgs::msg::String::SharedPtr msg)
 {
-  std::cout << "[BT_Decorator] Received human involved path length: " << msg->data << std::endl;
+  // std::cout << "[BT_Decorator] Received human involved path length: " << msg->data << std::endl;
 
    if (std::stoi(msg->data) > human_involved_path_length_) {
      human_involving_ = true;

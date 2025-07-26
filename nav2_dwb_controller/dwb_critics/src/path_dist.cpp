@@ -77,11 +77,11 @@ bool PathDistCritic::prepare(
     }
   }
   if (!started_path) {
-    RCLCPP_ERROR(
-      rclcpp::get_logger("PathDistCritic"),
-      "None of the %d first of %zu (%zu) points of the global plan were in "
-      "the local costmap and free",
-      i, adjusted_global_plan.poses.size(), global_plan.poses.size());
+    // RCLCPP_ERROR(
+    //   rclcpp::get_logger("PathDistCritic"),
+    //   "None of the %d first of %zu (%zu) points of the global plan were in "
+    //   "the local costmap and free",
+    //   i, adjusted_global_plan.poses.size(), global_plan.poses.size());
     return false;
   }
 

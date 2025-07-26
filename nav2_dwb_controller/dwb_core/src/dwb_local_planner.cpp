@@ -576,7 +576,7 @@ DWBLocalPlanner::scoreTrajectorySharedDWA(
   // switch control
   if (human_cmd_clearance < 1e-3)
   {
-    score.total = 1 - clearance + clearance * task_cmd_score;
+    score.total = task_cmd_score;
   }
   else
   {
