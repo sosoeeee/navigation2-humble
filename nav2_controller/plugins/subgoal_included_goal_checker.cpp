@@ -21,6 +21,8 @@
 
 using rcl_interfaces::msg::ParameterType;
 using std::placeholders::_1;
+using visualization_msgs::msg::Marker;
+using visualization_msgs::msg::MarkerArray;
 
 namespace nav2_controller
 {
@@ -28,7 +30,8 @@ namespace nav2_controller
 SubgoalIncludedGoalChecker::SubgoalIncludedGoalChecker()
 : SimpleGoalChecker(),
   all_subgoals_reached_(false),
-  subgoal_tolerance_(0.25)
+  subgoal_tolerance_(0.25),
+  global_frame_("map")
 {
 }
 
@@ -55,9 +58,12 @@ void SubgoalIncludedGoalChecker::initialize(
   // Declare parameters
   nav2_util::declare_parameter_if_not_declared(
     node, plugin_name + ".subgoal_tolerance", rclcpp::ParameterValue(0.25));
+  nav2_util::declare_parameter_if_not_declared(
+    node, plugin_name + ".global_frame", rclcpp::ParameterValue("map"));
   
   // Get parameters
   node->get_parameter(plugin_name + ".subgoal_tolerance", subgoal_tolerance_);
+  node->get_parameter(plugin_name + ".global_frame", global_frame_);
   
   // Create service for marking subgoals
   auto callback = std::bind(&SubgoalIncludedGoalChecker::handleMarkSubgoalRequest, 
@@ -65,6 +71,12 @@ void SubgoalIncludedGoalChecker::initialize(
   
   mark_subgoal_service_ = node->create_service<gym_msgs::srv::MarkSubgoal>(
     "mark_subgoal", callback);
+    
+  // Create visualization publishers
+  reached_subgoals_pub_ = node->create_publisher<MarkerArray>(
+    "reached_subgoals", 10);
+  failed_mark_pub_ = node->create_publisher<Marker>(
+    "failed_mark", 10);
   
   // Load subgoals from parameters
   loadSubgoalsFromParams();
@@ -74,8 +86,8 @@ void SubgoalIncludedGoalChecker::initialize(
     std::bind(&SubgoalIncludedGoalChecker::dynamicParametersCallback, this, _1));
   
   RCLCPP_INFO(node->get_logger(), 
-    "SubgoalIncludedGoalChecker initialized with %zu subgoals, tolerance: %.2f",
-    subgoals_.size(), subgoal_tolerance_);
+    "SubgoalIncludedGoalChecker initialized with %zu subgoals, tolerance: %.2f, frame: %s",
+    subgoals_.size(), subgoal_tolerance_, global_frame_.c_str());
 }
 
 void SubgoalIncludedGoalChecker::reset()
@@ -211,8 +223,16 @@ void SubgoalIncludedGoalChecker::handleMarkSubgoalRequest(
           subgoal.name.c_str(), subgoal.x, subgoal.y);
       }
       
+      // Update visualization
+      publishReachedSubgoals();
+      
       break;
     }
+  }
+  
+  // If no subgoal was marked as reached, publish the failed position
+  if (!response->success) {
+    publishFailedMark(current_pose);
   }
 }
 
@@ -234,6 +254,85 @@ SubgoalIncludedGoalChecker::dynamicParametersCallback(std::vector<rclcpp::Parame
   }
   
   return result;
+}
+
+void SubgoalIncludedGoalChecker::publishReachedSubgoals()
+{
+  auto node = parent_node_.lock();
+  if (!node) {
+    return;
+  }
+  
+  MarkerArray marker_array;
+  
+  std::lock_guard<std::mutex> lock(subgoals_mutex_);
+  
+  int id = 0;
+  for (const auto & subgoal : subgoals_) {
+    if (subgoal.reached) {
+      Marker marker;
+      marker.header.frame_id = global_frame_;
+      marker.header.stamp = node->now();
+      marker.ns = "reached_subgoals";
+      marker.id = id++;
+      marker.type = Marker::SPHERE;
+      marker.action = Marker::ADD;
+      
+      marker.pose.position.x = subgoal.x;
+      marker.pose.position.y = subgoal.y;
+      marker.pose.position.z = 0.2;  // Slightly above ground
+      marker.pose.orientation.w = 1.0;
+      
+      marker.scale.x = 0.3;
+      marker.scale.y = 0.3;
+      marker.scale.z = 0.3;
+      
+      marker.color.r = 0.0;
+      marker.color.g = 1.0;  // Green
+      marker.color.b = 0.0;
+      marker.color.a = 1.0;
+      
+      marker.lifetime = rclcpp::Duration::from_seconds(0);  // Persistent
+      
+      marker_array.markers.push_back(marker);
+    }
+  }
+  
+  reached_subgoals_pub_->publish(marker_array);
+}
+
+void SubgoalIncludedGoalChecker::publishFailedMark(const geometry_msgs::msg::Pose & pose)
+{
+  auto node = parent_node_.lock();
+  if (!node) {
+    return;
+  }
+  
+  Marker marker;
+  marker.header.frame_id = global_frame_;
+  marker.header.stamp = node->now();
+  marker.ns = "failed_mark";
+  marker.id = 0;
+  marker.type = Marker::SPHERE;
+  marker.action = Marker::ADD;
+  
+  marker.pose.position.x = pose.position.x;
+  marker.pose.position.y = pose.position.y;
+  marker.pose.position.z = 0.2;  // Slightly above ground
+  marker.pose.orientation.w = 1.0;
+  
+  marker.scale.x = 0.3;
+  marker.scale.y = 0.3;
+  marker.scale.z = 0.3;
+  
+  marker.color.r = 1.0;  // Red
+  marker.color.g = 0.0;
+  marker.color.b = 0.0;
+  marker.color.a = 1.0;
+  
+  marker.lifetime = rclcpp::Duration::from_seconds(5.0);  // Display for 5 seconds
+  
+  failed_mark_pub_->publish(marker);
 }
 
 }  // namespace nav2_controller

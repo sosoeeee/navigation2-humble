@@ -20,6 +20,8 @@
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "gym_msgs/srv/mark_subgoal.hpp"
 #include "std_msgs/msg/empty.hpp"
+#include "visualization_msgs/msg/marker.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 
 namespace nav2_controller
 {
@@ -64,6 +66,11 @@ protected:
   // Service for marking subgoals
   rclcpp::Service<gym_msgs::srv::MarkSubgoal>::SharedPtr mark_subgoal_service_;
   
+  // Visualization publishers
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr reached_subgoals_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr failed_mark_pub_;
+  std::string global_frame_;
+  
   // Method to handle MarkSubgoal service requests
   void handleMarkSubgoalRequest(
     const std::shared_ptr<gym_msgs::srv::MarkSubgoal::Request> request,
@@ -74,6 +81,10 @@ protected:
   
   // Load subgoals from parameters
   void loadSubgoalsFromParams();
+  
+  // Visualization methods
+  void publishReachedSubgoals();
+  void publishFailedMark(const geometry_msgs::msg::Pose & pose);
   
   // Dynamic parameters handler
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;

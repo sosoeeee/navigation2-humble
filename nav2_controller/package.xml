@@ -19,6 +19,8 @@
   <depend>nav_2d_msgs</depend>
   <depend>nav2_core</depend>
   <depend>pluginlib</depend>
+  <depend>gym_msgs</depend>
+  <depend>visualization_msgs</depend>
 
   <test_depend>ament_lint_common</test_depend>
   <test_depend>ament_lint_auto</test_depend>
