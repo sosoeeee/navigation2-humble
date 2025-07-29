@@ -1,178 +1,219 @@
-#include "nav2_controller/plugins/subgoal_included_goal_checker.hpp"
+/*
+ * Software License Agreement (BSD License)
+ *
+ * Copyright (c) 2025, Human Trajectory Prediction
+ * All rights reserved.
+ */
 
-#include <string>
 #include <memory>
-#include <algorithm> // For std::min, std::max
-
-#include "nav2_util/node_utils.hpp"
+#include <string>
+#include <vector>
+#include <limits>
+#include "nav2_controller/plugins/subgoal_included_goal_checker.hpp"
 #include "pluginlib/class_list_macros.hpp"
+#include "angles/angles.h"
+#include "nav2_util/node_utils.hpp"
+#include "nav2_util/geometry_utils.hpp"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#include "tf2/utils.h"
+#pragma GCC diagnostic pop
+
+using rcl_interfaces::msg::ParameterType;
+using std::placeholders::_1;
 
 namespace nav2_controller
 {
 
 SubgoalIncludedGoalChecker::SubgoalIncludedGoalChecker()
-: xy_goal_tolerance_(0.0), yaw_goal_tolerance_(0.0),
-  stateful_(true), num_marked_subgoals_(0), xy_goal_tolerance_sq_(0.0),
-  mark_subgoal_service_available_(false)
+: SimpleGoalChecker(),
+  all_subgoals_reached_(false),
+  subgoal_tolerance_(0.25)
+{
+}
+
+SubgoalIncludedGoalChecker::~SubgoalIncludedGoalChecker()
 {
 }
 
 void SubgoalIncludedGoalChecker::initialize(
   const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
   const std::string & plugin_name,
-  const std::shared_ptr<nav2_costmap_2d::Costmap2DROS> /*costmap_ros*/) // costmap_ros is unused for now
+  const std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros)
 {
-  node_ = parent;
-  plugin_name_ = plugin_name;
-  auto node = node_.lock();
+  // Initialize parent class
+  SimpleGoalChecker::initialize(parent, plugin_name, costmap_ros);
+  
+  // Store parent node
+  parent_node_ = parent;
+  
+  auto node = parent.lock();
   if (!node) {
-    throw std::runtime_error("Failed to lock node in SubgoalIncludedGoalChecker::initialize");
+    throw std::runtime_error("Unable to lock node for SubgoalIncludedGoalChecker");
   }
-  logger_ = node->get_logger(); // Use node's logger directly
-
+  
+  // Declare parameters
   nav2_util::declare_parameter_if_not_declared(
-    node, plugin_name + ".xy_goal_tolerance",
-    rclcpp::ParameterValue(0.2));
-  nav2_util::declare_parameter_if_not_declared(
-    node, plugin_name + ".yaw_goal_tolerance",
-    rclcpp::ParameterValue(0.2));
-  nav2_util::declare_parameter_if_not_declared(
-    node, plugin_name + ".stateful",
-    rclcpp::ParameterValue(true));
-
-  node->get_parameter(plugin_name + ".xy_goal_tolerance", xy_goal_tolerance_);
-  node->get_parameter(plugin_name + ".yaw_goal_tolerance", yaw_goal_tolerance_);
-  node->get_parameter(plugin_name + ".stateful", stateful_);
-
-  xy_goal_tolerance_sq_ = xy_goal_tolerance_ * xy_goal_tolerance_;
-  num_marked_subgoals_ = 0; // Initialize counter for subgoals
-
-  // Initialize TF Buffer and Listener
-  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(node->get_clock());
-  tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
-
-  robot_frame_id_ = "base_link"; // Assuming "base_link" is the robot's frame
-  map_frame_id_ = "map"; // Assuming "map" is the global frame
-
-  // Create service client for marking subgoals
-  mark_subgoal_client_ = node->create_client<gym_msgs::srv::MarkSubgoal>("mark_subgoal");
-  mark_subgoal_service_available_ = false;
-
-  // Check service availability periodically
-  service_check_timer_ = rclcpp::create_timer(
-    node,
-    node->get_clock(),
-    std::chrono::seconds(1),
-    [this]() {
-      if (!mark_subgoal_service_available_ && mark_subgoal_client_->service_is_ready()) {
-        mark_subgoal_service_available_ = true;
-        RCLCPP_INFO(logger_, "MarkSubgoal service is now available.");
-      }
-    });
-
-  // Create service server for marking subgoals (if this checker itself needs to mark subgoals)
+    node, plugin_name + ".subgoal_tolerance", rclcpp::ParameterValue(0.25));
+  
+  // Get parameters
+  node->get_parameter(plugin_name + ".subgoal_tolerance", subgoal_tolerance_);
+  
+  // Create service for marking subgoals
+  auto callback = std::bind(&SubgoalIncludedGoalChecker::handleMarkSubgoalRequest, 
+                            this, std::placeholders::_1, std::placeholders::_2);
+  
   mark_subgoal_service_ = node->create_service<gym_msgs::srv::MarkSubgoal>(
-    "mark_subgoal_from_goal_checker",
-    std::bind(
-      &SubgoalIncludedGoalChecker::markSubgoalCallback, this,
-      std::placeholders::_1, std::placeholders::_2));
-
-  // Set up dynamic parameters callback
+    "mark_subgoal", callback);
+  
+  // Load subgoals from parameters
+  loadSubgoalsFromParams();
+  
+  // Add callback for dynamic parameters
   dyn_params_handler_ = node->add_on_set_parameters_callback(
-    std::bind(&SubgoalIncludedGoalChecker::dynamicParametersCallback, this, std::placeholders::_1));
-
-  RCLCPP_INFO(logger_, "SubgoalIncludedGoalChecker initialized.");
+    std::bind(&SubgoalIncludedGoalChecker::dynamicParametersCallback, this, _1));
+  
+  RCLCPP_INFO(node->get_logger(), 
+    "SubgoalIncludedGoalChecker initialized with %zu subgoals, tolerance: %.2f",
+    subgoals_.size(), subgoal_tolerance_);
 }
 
 void SubgoalIncludedGoalChecker::reset()
 {
-  // Reset any stateful information, e.g., if XY tolerance was reached
-  num_marked_subgoals_ = 0;
-  RCLCPP_INFO(logger_, "SubgoalIncludedGoalChecker reset.");
+  SimpleGoalChecker::reset();
+  
+  std::lock_guard<std::mutex> lock(subgoals_mutex_);
+  
+  // Reset the 'reached' status of all subgoals
+  for (auto & subgoal : subgoals_) {
+    subgoal.reached = false;
+  }
+  
+  all_subgoals_reached_ = false;
 }
 
 bool SubgoalIncludedGoalChecker::isGoalReached(
-  const geometry_msgs::msg::Pose & query_pose,
-  const geometry_msgs::msg::Pose & goal_pose,
-  const geometry_msgs::msg::Twist & /*linear_vel*/) // linear_vel is unused for now
+  const geometry_msgs::msg::Pose & query_pose, const geometry_msgs::msg::Pose & goal_pose,
+  const geometry_msgs::msg::Twist & velocity)
 {
-  geometry_msgs::msg::PoseStamped current_pose_stamped;
-  current_pose_stamped.header.frame_id = robot_frame_id_;
-  // Use node's clock for timestamp
-  auto node = node_.lock();
+  // Update current robot pose
+  current_pose_ = query_pose;
+  
+  // Check subgoals
+  {
+    std::lock_guard<std::mutex> lock(subgoals_mutex_);
+    
+    // If not all subgoals are reached, check each one
+    if (!all_subgoals_reached_) {
+      bool all_reached = true;
+      
+      for (auto & subgoal : subgoals_) {
+        // Update all_reached flag
+        if (!subgoal.reached) {
+          all_reached = false;
+          break;
+        }
+      }
+      
+      all_subgoals_reached_ = all_reached;
+      
+      if (all_subgoals_reached_ && auto node = parent_node_.lock()) {
+        RCLCPP_INFO(node->get_logger(), "All subgoals reached!");
+      }
+    }
+  }
+  
+  // If all subgoals are reached, then check the final goal with parent method
+  if (all_subgoals_reached_) {
+    return SimpleGoalChecker::isGoalReached(query_pose, goal_pose, velocity);
+  }
+  
+  return false;
+}
+
+bool SubgoalIncludedGoalChecker::isSubgoalReached(
+  const geometry_msgs::msg::Pose & query_pose, const Subgoal & subgoal)
+{
+  // Check if the distance to the subgoal is within tolerance
+  double dx = query_pose.position.x - subgoal.x;
+  double dy = query_pose.position.y - subgoal.y;
+  return (dx * dx + dy * dy) <= (subgoal_tolerance_ * subgoal_tolerance_);
+}
+
+void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
+{
+  auto node = parent_node_.lock();
   if (!node) {
-    RCLCPP_ERROR(logger_, "Failed to lock node in isGoalReached.");
-    return false;
+    return;
   }
-  current_pose_stamped.header.stamp = node->get_clock()->now();
-  current_pose_stamped.pose = query_pose;
-
-  geometry_msgs::msg::PoseStamped goal_pose_stamped;
-  goal_pose_stamped.header.frame_id = map_frame_id_; // Assuming goal_pose is in map frame
-  goal_pose_stamped.header.stamp = node->get_clock()->now();
-  goal_pose_stamped.pose = goal_pose;
-
-  // Transform query_pose to map frame if it's not already, for consistent comparison
-  geometry_msgs::msg::PoseStamped transformed_query_pose;
-  try {
-    tf_buffer_->transform(current_pose_stamped, transformed_query_pose, map_frame_id_);
-  } catch (tf2::TransformException & ex) {
-    RCLCPP_ERROR(logger_, "Failed to transform pose: %s", ex.what());
-    return false; // Cannot check goal if transform fails
+  
+  std::lock_guard<std::mutex> lock(subgoals_mutex_);
+  
+  subgoals_.clear();
+  
+  // Declare parameter for number of subgoals
+  nav2_util::declare_parameter_if_not_declared(
+    node, plugin_name_ + ".num_subgoals", rclcpp::ParameterValue(0));
+  
+  int num_subgoals = 0;
+  node->get_parameter(plugin_name_ + ".num_subgoals", num_subgoals);
+  
+  for (int i = 0; i < num_subgoals; i++) {
+    std::string prefix = plugin_name_ + ".subgoal_" + std::to_string(i);
+    
+    // Declare parameters for this subgoal
+    nav2_util::declare_parameter_if_not_declared(
+      node, prefix + ".x", rclcpp::ParameterValue(0.0));
+    nav2_util::declare_parameter_if_not_declared(
+      node, prefix + ".y", rclcpp::ParameterValue(0.0));
+    nav2_util::declare_parameter_if_not_declared(
+      node, prefix + ".name", rclcpp::ParameterValue("subgoal_" + std::to_string(i)));
+    
+    // Get parameters
+    double x = 0.0, y = 0.0;
+    std::string name = "subgoal_" + std::to_string(i);
+    
+    node->get_parameter(prefix + ".x", x);
+    node->get_parameter(prefix + ".y", y);
+    node->get_parameter(prefix + ".name", name);
+    
+    // Add to list
+    subgoals_.push_back({x, y, name, false});
+    
+    RCLCPP_INFO(node->get_logger(), 
+      "Loaded subgoal '%s' at (%.2f, %.2f)", 
+      name.c_str(), x, y);
   }
-
-  bool reached = withinTolerance(transformed_query_pose, goal_pose_stamped, xy_goal_tolerance_, yaw_goal_tolerance_);
-
-  return reached;
 }
 
-bool SubgoalIncludedGoalChecker::withinTolerance(
-  const geometry_msgs::msg::PoseStamped & current_pose,
-  const geometry_msgs::msg::PoseStamped & goal_pose,
-  double xy_tolerance, double yaw_tolerance)
+void SubgoalIncludedGoalChecker::handleMarkSubgoalRequest(
+  const std::shared_ptr<gym_msgs::srv::MarkSubgoal::Request> request,
+  std::shared_ptr<gym_msgs::srv::MarkSubgoal::Response> response)
 {
-  double dx = goal_pose.pose.position.x - current_pose.pose.position.x;
-  double dy = goal_pose.pose.position.y - current_pose.pose.position.y;
-  double dist_sq = dx * dx + dy * dy;
-
-  if (dist_sq > xy_tolerance * xy_tolerance) {
-    return false; // Not within XY tolerance
+  std::lock_guard<std::mutex> lock(subgoals_mutex_);
+  
+  response->success = false;
+  response->marked_subgoal_name = "";
+  
+  // Get current robot pose
+  geometry_msgs::msg::Pose current_pose = current_pose_;
+  
+  // Check each subgoal
+  for (auto & subgoal : subgoals_) {
+    if (!subgoal.reached && isSubgoalReached(current_pose, subgoal)) {
+      subgoal.reached = true;
+      response->success = true;
+      response->marked_subgoal_name = subgoal.name;
+      
+      if (auto node = parent_node_.lock()) {
+        RCLCPP_INFO(node->get_logger(), 
+          "Marked subgoal '%s' (%.2f, %.2f) as reached via service call", 
+          subgoal.name.c_str(), subgoal.x, subgoal.y);
+      }
+      
+      break;
+    }
   }
-
-  double current_yaw = tf2::getYaw(current_pose.pose.orientation);
-  double goal_yaw = tf2::getYaw(goal_pose.pose.orientation);
-  double yaw_diff = angles::normalize_angle(goal_yaw - current_yaw);
-
-  if (std::abs(yaw_diff) > yaw_tolerance) {
-    return false; // Not within Yaw tolerance
-  }
-
-  return true; // Within both XY and Yaw tolerance
-}
-
-// Corrected name from getGoalTolerances to getTolerances
-bool SubgoalIncludedGoalChecker::getTolerances(
-  geometry_msgs::msg::Pose & pose_tolerance,
-  geometry_msgs::msg::Twist & vel_tolerance)
-{
-  // Set position tolerance
-  pose_tolerance.position.x = xy_goal_tolerance_;
-  pose_tolerance.position.y = xy_goal_tolerance_;
-  pose_tolerance.position.z = 0.0; // Z-tolerance is not typically used for 2D navigation
-
-  // Set orientation tolerance
-  pose_tolerance.orientation = nav2_util::geometry_utils::orientationAroundZAxis(yaw_goal_tolerance_);
-
-  // Velocity tolerances are typically not used by goal checkers to report
-  // what *they* tolerate, but rather by controllers. So, setting to 0.
-  vel_tolerance.linear.x = 0.0;
-  vel_tolerance.linear.y = 0.0;
-  vel_tolerance.linear.z = 0.0;
-  vel_tolerance.angular.x = 0.0;
-  vel_tolerance.angular.y = 0.0;
-  vel_tolerance.angular.z = 0.0;
-
-  return true;
 }
 
 rcl_interfaces::msg::SetParametersResult
@@ -180,32 +221,19 @@ SubgoalIncludedGoalChecker::dynamicParametersCallback(std::vector<rclcpp::Parame
 {
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
+  
   for (const auto & parameter : parameters) {
+    const auto & type = parameter.get_type();
     const auto & name = parameter.get_name();
-
-    if (name == plugin_name_ + ".xy_goal_tolerance") {
-      xy_goal_tolerance_ = parameter.as_double();
-      xy_goal_tolerance_sq_ = xy_goal_tolerance_ * xy_goal_tolerance_;
-      RCLCPP_INFO(logger_, "Updated xy_goal_tolerance to: %.2f", xy_goal_tolerance_);
-    } else if (name == plugin_name_ + ".yaw_goal_tolerance") {
-      yaw_goal_tolerance_ = parameter.as_double();
-      RCLCPP_INFO(logger_, "Updated yaw_goal_tolerance to: %.2f", yaw_goal_tolerance_);
-    } else if (name == plugin_name_ + ".stateful") {
-      stateful_ = parameter.as_bool();
-      RCLCPP_INFO(logger_, "Updated stateful to: %s", stateful_ ? "true" : "false");
+    
+    if (type == ParameterType::PARAMETER_DOUBLE) {
+      if (name == plugin_name_ + ".subgoal_tolerance") {
+        subgoal_tolerance_ = parameter.as_double();
+      }
     }
   }
+  
   return result;
-}
-
-void SubgoalIncludedGoalChecker::markSubgoalCallback(
-  const std::shared_ptr<gym_msgs::srv::MarkSubgoal::Request> /*request*/, // Request is unused for now
-  std::shared_ptr<gym_msgs::srv::MarkSubgoal::Response> response)
-{
-  num_marked_subgoals_++;
-  RCLCPP_INFO(logger_, "Subgoal marked as reached. Total marked subgoals: %zu", num_marked_subgoals_);
-  response->success = true;
-  // Temporarily removed response->message as per error analysis, if your .srv has it, add it back.
 }
 
 }  // namespace nav2_controller

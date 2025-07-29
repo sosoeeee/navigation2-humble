@@ -19,4 +19,9 @@
         <description>Checks linear and angular velocity after stopping</description>
     </class>
   </library>
+  <library path="subgoal_included_goal_checker">
+    <class type="nav2_controller::SubgoalIncludedGoalChecker" base_class_type="nav2_core::GoalChecker">
+        <description>Checks if all subgoals are reached before checking if final goal is reached</description>
+    </class>
+  </library>
 </class_libraries>
