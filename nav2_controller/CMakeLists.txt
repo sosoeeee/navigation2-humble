@@ -14,6 +14,8 @@ find_package(nav2_msgs REQUIRED)
 find_package(nav_2d_utils REQUIRED)
 find_package(nav_2d_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(gym_msgs REQUIRED)
+
 
 nav2_package()
 
@@ -45,6 +47,7 @@ set(dependencies
   nav2_util
   nav2_core
   pluginlib
+  gym_msgs
 )
 
 add_library(simple_progress_checker SHARED plugins/simple_progress_checker.cpp)
@@ -60,6 +63,9 @@ ament_target_dependencies(simple_goal_checker ${dependencies})
 add_library(stopped_goal_checker SHARED plugins/stopped_goal_checker.cpp)
 target_link_libraries(stopped_goal_checker simple_goal_checker)
 ament_target_dependencies(stopped_goal_checker ${dependencies})
+
+add_library(subgoal_included_goal_checker SHARED plugins/subgoal_included_goal_checker.cpp)
+ament_target_dependencies(subgoal_included_goal_checker ${dependencies})
 
 ament_target_dependencies(${library_name}
   ${dependencies}
@@ -109,6 +115,7 @@ ament_export_libraries(simple_progress_checker
   pose_progress_checker
   simple_goal_checker
   stopped_goal_checker
+  subgoal_included_goal_checker
   ${library_name})
 ament_export_dependencies(${dependencies})
 pluginlib_export_plugin_description_file(nav2_core plugins.xml)
