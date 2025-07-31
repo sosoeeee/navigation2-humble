@@ -67,6 +67,7 @@ target_link_libraries(stopped_goal_checker simple_goal_checker)
 ament_target_dependencies(stopped_goal_checker ${dependencies})
 
 add_library(subgoal_included_goal_checker SHARED plugins/subgoal_included_goal_checker.cpp)
+target_link_libraries(subgoal_included_goal_checker simple_goal_checker) 
 ament_target_dependencies(subgoal_included_goal_checker ${dependencies})
 
 ament_target_dependencies(${library_name}

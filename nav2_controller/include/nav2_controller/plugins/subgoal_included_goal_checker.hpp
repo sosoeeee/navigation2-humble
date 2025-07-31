@@ -97,4 +97,5 @@ protected:
 
 }  // namespace nav2_controller
 
+
 #endif  // NAV2_CONTROLLER__PLUGINS__SUBGOAL_INCLUDED_GOAL_CHECKER_HPP_

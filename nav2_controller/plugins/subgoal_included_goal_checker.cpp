@@ -32,11 +32,12 @@ SubgoalIncludedGoalChecker::SubgoalIncludedGoalChecker()
   all_subgoals_reached_(false),
   subgoal_tolerance_(0.25),
   global_frame_("map")
-{
+{ 
 }
 
 SubgoalIncludedGoalChecker::~SubgoalIncludedGoalChecker()
 {
+ 
 }
 
 void SubgoalIncludedGoalChecker::initialize(
@@ -108,6 +109,7 @@ bool SubgoalIncludedGoalChecker::isGoalReached(
   const geometry_msgs::msg::Pose & query_pose, const geometry_msgs::msg::Pose & goal_pose,
   const geometry_msgs::msg::Twist & velocity)
 {
+ 
   // Update current robot pose
   current_pose_ = query_pose;
   
@@ -129,7 +131,8 @@ bool SubgoalIncludedGoalChecker::isGoalReached(
       
       all_subgoals_reached_ = all_reached;
       
-      if (all_subgoals_reached_ && auto node = parent_node_.lock()) {
+      auto node = parent_node_.lock();
+      if (all_subgoals_reached_ && node) {
         RCLCPP_INFO(node->get_logger(), "All subgoals reached!");
       }
     }
@@ -202,6 +205,7 @@ void SubgoalIncludedGoalChecker::handleMarkSubgoalRequest(
   const std::shared_ptr<gym_msgs::srv::MarkSubgoal::Request> request,
   std::shared_ptr<gym_msgs::srv::MarkSubgoal::Response> response)
 {
+  (void)request; 
   std::lock_guard<std::mutex> lock(subgoals_mutex_);
   
   response->success = false;
@@ -221,11 +225,13 @@ void SubgoalIncludedGoalChecker::handleMarkSubgoalRequest(
         RCLCPP_INFO(node->get_logger(), 
           "Marked subgoal '%s' (%.2f, %.2f) as reached via service call", 
           subgoal.name.c_str(), subgoal.x, subgoal.y);
+        
       }
       
       // Update visualization
       publishReachedSubgoals();
       
+         
       break;
     }
   }
@@ -262,17 +268,17 @@ void SubgoalIncludedGoalChecker::publishReachedSubgoals()
   if (!node) {
     return;
   }
-  
+ 
   MarkerArray marker_array;
   
-  std::lock_guard<std::mutex> lock(subgoals_mutex_);
-  
+  //std::lock_guard<std::mutex> lock(subgoals_mutex_);
+
   int id = 0;
   for (const auto & subgoal : subgoals_) {
     if (subgoal.reached) {
       Marker marker;
       marker.header.frame_id = global_frame_;
-      marker.header.stamp = node->now();
+      marker.header.stamp = node->get_clock()->now();
       marker.ns = "reached_subgoals";
       marker.id = id++;
       marker.type = Marker::SPHERE;
@@ -295,11 +301,13 @@ void SubgoalIncludedGoalChecker::publishReachedSubgoals()
       marker.lifetime = rclcpp::Duration::from_seconds(0);  // Persistent
       
       marker_array.markers.push_back(marker);
+      
+      
     }
   }
-  
   reached_subgoals_pub_->publish(marker_array);
-}
+ }
+
 
 void SubgoalIncludedGoalChecker::publishFailedMark(const geometry_msgs::msg::Pose & pose)
 {
@@ -310,7 +318,7 @@ void SubgoalIncludedGoalChecker::publishFailedMark(const geometry_msgs::msg::Pos
   
   Marker marker;
   marker.header.frame_id = global_frame_;
-  marker.header.stamp = node->now();
+  marker.header.stamp = node->get_clock()->now();
   marker.ns = "failed_mark";
   marker.id = 0;
   marker.type = Marker::SPHERE;
