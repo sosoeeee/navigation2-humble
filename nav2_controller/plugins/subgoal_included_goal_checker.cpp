@@ -31,7 +31,7 @@ SubgoalIncludedGoalChecker::SubgoalIncludedGoalChecker()
 : SimpleGoalChecker(),
   all_subgoals_reached_(false),
   subgoal_tolerance_(0.25),
-  global_frame_("map")
+  subgoal_frame_("map")
 { 
 }
 
@@ -48,8 +48,9 @@ void SubgoalIncludedGoalChecker::initialize(
   // Initialize parent class
   SimpleGoalChecker::initialize(parent, plugin_name, costmap_ros);
   
-  // Store parent node
+  // Store parent node and costmap
   parent_node_ = parent;
+  costmap_ros_ = costmap_ros;
   
   auto node = parent.lock();
   if (!node) {
@@ -60,11 +61,11 @@ void SubgoalIncludedGoalChecker::initialize(
   nav2_util::declare_parameter_if_not_declared(
     node, plugin_name + ".subgoal_tolerance", rclcpp::ParameterValue(0.25));
   nav2_util::declare_parameter_if_not_declared(
-    node, plugin_name + ".global_frame", rclcpp::ParameterValue("map"));
+    node, plugin_name + ".subgoal_frame", rclcpp::ParameterValue("map"));
   
   // Get parameters
   node->get_parameter(plugin_name + ".subgoal_tolerance", subgoal_tolerance_);
-  node->get_parameter(plugin_name + ".global_frame", global_frame_);
+  node->get_parameter(plugin_name + ".subgoal_frame", subgoal_frame_);
   
   // Create service for marking subgoals
   auto callback = std::bind(&SubgoalIncludedGoalChecker::handleMarkSubgoalRequest, 
@@ -149,9 +150,47 @@ bool SubgoalIncludedGoalChecker::isGoalReached(
 bool SubgoalIncludedGoalChecker::isSubgoalReached(
   const geometry_msgs::msg::Pose & query_pose, const Subgoal & subgoal)
 {
+  auto node = parent_node_.lock();
+  if (!node || !costmap_ros_) {
+    return false;
+  }
+  
+  // Transform subgoal from subgoal_frame to global frame if needed
+  double x = subgoal.x;
+  double y = subgoal.y;
+  
+  if (subgoal_frame_ != costmap_ros_->getGlobalFrameID()) {
+    try {
+      // Create a pose stamped in the subgoal frame
+      geometry_msgs::msg::PoseStamped subgoal_pose;
+      subgoal_pose.header.frame_id = subgoal_frame_;
+      subgoal_pose.header.stamp = node->get_clock()->now();
+      subgoal_pose.pose.position.x = x;
+      subgoal_pose.pose.position.y = y;
+      subgoal_pose.pose.orientation.w = 1.0;
+      
+      // Transform to global frame
+      geometry_msgs::msg::PoseStamped transformed_pose;
+      rclcpp::Duration transform_tolerance(rclcpp::Duration::from_seconds(costmap_ros_->getTransformTolerance()));
+      nav_2d_utils::transformPose(
+        costmap_ros_->getTfBuffer(), costmap_ros_->getGlobalFrameID(),
+        subgoal_pose, transformed_pose, transform_tolerance);
+      
+      // Get transformed coordinates
+      x = transformed_pose.pose.position.x;
+      y = transformed_pose.pose.position.y;
+    } catch (const std::exception & ex) {
+      RCLCPP_ERROR(
+        node->get_logger(),
+        "Failed to transform subgoal from %s to %s: %s",
+        subgoal_frame_.c_str(), costmap_ros_->getGlobalFrameID().c_str(), ex.what());
+      return false;
+    }
+  }
+  
   // Check if the distance to the subgoal is within tolerance
-  double dx = query_pose.position.x - subgoal.x;
-  double dy = query_pose.position.y - subgoal.y;
+  double dx = query_pose.position.x - x;
+  double dy = query_pose.position.y - y;
   return (dx * dx + dy * dy) <= (subgoal_tolerance_ * subgoal_tolerance_);
 }
 
@@ -159,7 +198,7 @@ void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
 {
   auto node = parent_node_.lock();
   if (!node) {
-    return;
+    throw std::runtime_error("Unable to lock node for SubgoalIncludedGoalChecker");
   }
   
   std::lock_guard<std::mutex> lock(subgoals_mutex_);
@@ -196,8 +235,8 @@ void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
     subgoals_.push_back({x, y, name, false});
     
     RCLCPP_INFO(node->get_logger(), 
-      "Loaded subgoal '%s' at (%.2f, %.2f)", 
-      name.c_str(), x, y);
+      "Loaded subgoal '%s' at (%.2f, %.2f) in frame %s", 
+      name.c_str(), x, y, subgoal_frame_.c_str());
   }
 }
 
@@ -256,6 +295,10 @@ SubgoalIncludedGoalChecker::dynamicParametersCallback(std::vector<rclcpp::Parame
       if (name == plugin_name_ + ".subgoal_tolerance") {
         subgoal_tolerance_ = parameter.as_double();
       }
+    } else if (type == ParameterType::PARAMETER_STRING) {
+      if (name == plugin_name_ + ".subgoal_frame") {
+        subgoal_frame_ = parameter.as_string();
+      }
     }
   }
   
@@ -265,27 +308,58 @@ SubgoalIncludedGoalChecker::dynamicParametersCallback(std::vector<rclcpp::Parame
 void SubgoalIncludedGoalChecker::publishReachedSubgoals()
 {
   auto node = parent_node_.lock();
-  if (!node) {
+  if (!node || !costmap_ros_) {
     return;
   }
  
   MarkerArray marker_array;
-  
-  //std::lock_guard<std::mutex> lock(subgoals_mutex_);
+  std::string global_frame = costmap_ros_->getGlobalFrameID();
+  rclcpp::Duration transform_tolerance(rclcpp::Duration::from_seconds(costmap_ros_->getTransformTolerance()));
 
   int id = 0;
   for (const auto & subgoal : subgoals_) {
     if (subgoal.reached) {
       Marker marker;
-      marker.header.frame_id = global_frame_;
+      marker.header.frame_id = global_frame;
       marker.header.stamp = node->get_clock()->now();
       marker.ns = "reached_subgoals";
       marker.id = id++;
       marker.type = Marker::SPHERE;
       marker.action = Marker::ADD;
       
-      marker.pose.position.x = subgoal.x;
-      marker.pose.position.y = subgoal.y;
+      // Transform coordinates if needed
+      double x = subgoal.x;
+      double y = subgoal.y;
+      
+      if (subgoal_frame_ != global_frame) {
+        try {
+          // Create a pose stamped in the subgoal frame
+          geometry_msgs::msg::PoseStamped subgoal_pose;
+          subgoal_pose.header.frame_id = subgoal_frame_;
+          subgoal_pose.header.stamp = node->get_clock()->now();
+          subgoal_pose.pose.position.x = x;
+          subgoal_pose.pose.position.y = y;
+          subgoal_pose.pose.orientation.w = 1.0;
+          
+          // Transform to global frame
+          geometry_msgs::msg::PoseStamped transformed_pose;
+          nav_2d_utils::transformPose(
+            costmap_ros_->getTfBuffer(), global_frame,
+            subgoal_pose, transformed_pose, transform_tolerance);
+          
+          // Get transformed coordinates
+          x = transformed_pose.pose.position.x;
+          y = transformed_pose.pose.position.y;
+        } catch (const std::exception & ex) {
+          RCLCPP_ERROR(
+            node->get_logger(),
+            "Failed to transform subgoal for visualization: %s", ex.what());
+          continue;
+        }
+      }
+      
+      marker.pose.position.x = x;
+      marker.pose.position.y = y;
       marker.pose.position.z = 0.2;  // Slightly above ground
       marker.pose.orientation.w = 1.0;
       
@@ -301,23 +375,23 @@ void SubgoalIncludedGoalChecker::publishReachedSubgoals()
       marker.lifetime = rclcpp::Duration::from_seconds(0);  // Persistent
       
       marker_array.markers.push_back(marker);
-      
-      
     }
   }
   reached_subgoals_pub_->publish(marker_array);
- }
+}
 
 
 void SubgoalIncludedGoalChecker::publishFailedMark(const geometry_msgs::msg::Pose & pose)
 {
   auto node = parent_node_.lock();
-  if (!node) {
+  if (!node || !costmap_ros_) {
     return;
   }
   
+  std::string global_frame = costmap_ros_->getGlobalFrameID();
+  
   Marker marker;
-  marker.header.frame_id = global_frame_;
+  marker.header.frame_id = global_frame;
   marker.header.stamp = node->get_clock()->now();
   marker.ns = "failed_mark";
   marker.id = 0;

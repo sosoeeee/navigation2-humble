@@ -22,6 +22,7 @@
 #include "std_msgs/msg/empty.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
+#include "nav_2d_utils/tf_help.hpp"
 
 namespace nav2_controller
 {
@@ -69,7 +70,10 @@ protected:
   // Visualization publishers
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr reached_subgoals_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr failed_mark_pub_;
-  std::string global_frame_;
+  std::string subgoal_frame_;
+  
+  // Reference to the costmap for transformations
+  std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
   
   // Method to handle MarkSubgoal service requests
   void handleMarkSubgoalRequest(
