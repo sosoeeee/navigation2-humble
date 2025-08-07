@@ -522,7 +522,7 @@ AmclNode::initialPoseReceived(geometry_msgs::msg::PoseWithCovarianceStamped::Sha
 {
   std::lock_guard<std::recursive_mutex> cfl(mutex_);
 
-  RCLCPP_INFO(get_logger(), "initialPoseReceived");
+  //RCLCPP_INFO(get_logger(), "initialPoseReceived");
 
   if (!nav2_util::validateMsg(*msg)) {
     RCLCPP_ERROR(get_logger(), "Received initialpose message is malformed. Rejecting.");
@@ -585,12 +585,12 @@ AmclNode::handleInitialPose(geometry_msgs::msg::PoseWithCovarianceStamped & msg)
 
   // Transform into the global frame
 
-  RCLCPP_INFO(
-    get_logger(), "Setting pose (%.6f): %.3f %.3f %.3f",
-    now().nanoseconds() * 1e-9,
-    pose_new.getOrigin().x(),
-    pose_new.getOrigin().y(),
-    tf2::getYaw(pose_new.getRotation()));
+  //RCLCPP_INFO(
+   // get_logger(), "Setting pose (%.6f): %.3f %.3f %.3f",
+   // now().nanoseconds() * 1e-9,
+   // pose_new.getOrigin().x(),
+   // pose_new.getOrigin().y(),
+   // tf2::getYaw(pose_new.getRotation()));
 
   // Re-initialize the filter
   pf_vector_t pf_init_pose_mean = pf_vector_zero();
