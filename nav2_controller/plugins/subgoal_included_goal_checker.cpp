@@ -87,9 +87,9 @@ void SubgoalIncludedGoalChecker::initialize(
   dyn_params_handler_ = node->add_on_set_parameters_callback(
     std::bind(&SubgoalIncludedGoalChecker::dynamicParametersCallback, this, _1));
   
-  RCLCPP_INFO(node->get_logger(), 
-    "SubgoalIncludedGoalChecker initialized with %zu subgoals, tolerance: %.2f, frame: %s",
-    subgoals_.size(), subgoal_tolerance_, global_frame_.c_str());
+//  RCLCPP_INFO(node->get_logger(), 
+  //  "SubgoalIncludedGoalChecker initialized with %zu subgoals, tolerance: %.2f, frame: %s",
+ //   subgoals_.size(), subgoal_tolerance_, global_frame_.c_str());
 }
 
 void SubgoalIncludedGoalChecker::reset()
