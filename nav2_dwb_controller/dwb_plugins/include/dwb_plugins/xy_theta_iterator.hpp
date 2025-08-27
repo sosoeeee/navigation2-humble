@@ -74,6 +74,7 @@ protected:
   void iterateToValidVelocity();
   int vx_samples_, vy_samples_, vtheta_samples_;
   KinematicsHandler::Ptr kinematics_handler_;
+  bool allow_stop_;
 
   std::shared_ptr<OneDVelocityIterator> x_it_, y_it_, th_it_;
 };

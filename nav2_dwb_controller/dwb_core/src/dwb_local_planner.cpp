@@ -379,7 +379,7 @@ DWBLocalPlanner::coreScoringAlgorithm(
   IllegalTrajectoryTracker tracker;
 
   // if shared DWA (get the average clearance)
-  double avrClearance = 1.0;
+  double avrClearance = 0.0;
 
   // activate high speed constrain in clutter env
   double clearance_, k = 0;
@@ -432,6 +432,17 @@ DWBLocalPlanner::coreScoringAlgorithm(
       // dwb_msgs::msg::TrajectoryScore score = scoreTrajectory(traj, best.total);
       dwb_msgs::msg::TrajectoryScore score = scoreTrajectorySharedDWA(traj, local_human_cmd, avrClearance, human_cmd_clearance);
 
+      // if (traj.velocity.theta == 0.0){
+      //   RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), 
+      //     "linear speed: %.4f, score: %.4f"
+      //     , score.traj.velocity.x, score.total);
+      //   // for (auto const & s : score.scores) {
+      //   //   RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), 
+      //   //   "name: %s, score: %.4f"
+      //   //   , s.name.c_str(), s.raw_score * s.scale);
+      //   // }
+      // }
+
       tracker.addLegalTrajectory();
       if (results) {
         results->twists.push_back(score);
@@ -463,6 +474,15 @@ DWBLocalPlanner::coreScoringAlgorithm(
       tracker.addIllegalTrajectory(e);
     }
   }
+
+  // RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), 
+  //   "best: %.4f, best vel: %.4f, best omg: %.4f"
+  //   ,best.total, best.traj.velocity.x, best.traj.velocity.theta);
+  // for (auto const & s : best.scores) {
+  //   RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), 
+  //   "best name: %s, score: %.4f"
+  //   , s.name.c_str(), s.raw_score * s.scale);
+  // }
 
   if (best.total < 0) {
     if (debug_trajectory_details_) {
@@ -725,7 +745,7 @@ DWBLocalPlanner::transformGlobalPlan(
     {
       // If we have a previous plan, return it instead of an empty one.
       transformed_plan = last_transformed_plan_;
-      RCLCPP_WARN(
+      RCLCPP_INFO(
         logger_, "Resulting plan has 0 poses in it. "
         "Using the last transformed plan instead.");
     }

@@ -61,10 +61,14 @@ void XYThetaIterator::initialize(
   nav2_util::declare_parameter_if_not_declared(
     nh,
     plugin_name + ".vtheta_samples", rclcpp::ParameterValue(20));
+  nav2_util::declare_parameter_if_not_declared(
+    nh,
+    plugin_name + ".allow_stop", rclcpp::ParameterValue(false));
 
   nh->get_parameter(plugin_name + ".vx_samples", vx_samples_);
   nh->get_parameter(plugin_name + ".vy_samples", vy_samples_);
   nh->get_parameter(plugin_name + ".vtheta_samples", vtheta_samples_);
+  nh->get_parameter(plugin_name + ".allow_stop", allow_stop_);
 }
 
 void XYThetaIterator::startNewIteration(
@@ -104,7 +108,7 @@ bool XYThetaIterator::isValidSpeed(double x, double y, double theta)
   {
     return false;
   }
-  if (vmag_sq == 0.0 && th_it_->getVelocity() == 0.0) {
+  if (vmag_sq == 0.0 && th_it_->getVelocity() == 0.0 && !allow_stop_) {
     return false;
   }
   return true;
