@@ -99,11 +99,10 @@ void SubgoalIncludedGoalChecker::reset()
   std::lock_guard<std::mutex> lock(subgoals_mutex_);
   
   // Reset the 'reached' status of all subgoals
-  for (auto & subgoal : subgoals_) {
-    subgoal.reached = false;
-  }
-  
-  all_subgoals_reached_ = false;
+  // for (auto & subgoal : subgoals_) {
+  //   subgoal.reached = false;
+  // }
+  // all_subgoals_reached_ = false;
 }
 
 bool SubgoalIncludedGoalChecker::isGoalReached(
@@ -241,10 +240,9 @@ void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
 }
 
 void SubgoalIncludedGoalChecker::handleMarkSubgoalRequest(
-  const std::shared_ptr<gym_msgs::srv::MarkSubgoal::Request> request,
+  const std::shared_ptr<gym_msgs::srv::MarkSubgoal::Request> /*request*/,
   std::shared_ptr<gym_msgs::srv::MarkSubgoal::Response> response)
 {
-  (void)request; 
   std::lock_guard<std::mutex> lock(subgoals_mutex_);
   
   response->success = false;
@@ -269,8 +267,6 @@ void SubgoalIncludedGoalChecker::handleMarkSubgoalRequest(
       
       // Update visualization
       publishReachedSubgoals();
-      
-         
       break;
     }
   }
@@ -279,6 +275,20 @@ void SubgoalIncludedGoalChecker::handleMarkSubgoalRequest(
   if (!response->success) {
     publishFailedMark(current_pose);
   }
+
+  // debug
+  // if (auto node = parent_node_.lock()) {
+  //   for (auto & subgoal : subgoals_) {
+  //     int reached = 0;
+  //     if (subgoal.reached){
+  //       reached = 1;
+  //     }
+  //     RCLCPP_WARN(node->get_logger(), 
+  //     "Subgoal '%s' status: %d", 
+  //     subgoal.name.c_str(), reached);
+  //   }
+  //   RCLCPP_WARN(node->get_logger(),"\n");
+  // }
 }
 
 rcl_interfaces::msg::SetParametersResult
