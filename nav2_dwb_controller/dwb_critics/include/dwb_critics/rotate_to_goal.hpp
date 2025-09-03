@@ -76,6 +76,7 @@ public:
     const geometry_msgs::msg::Pose2D & pose, const nav_2d_msgs::msg::Twist2D & vel,
     const geometry_msgs::msg::Pose2D & goal, const nav_2d_msgs::msg::Path2D & global_plan) override;
   double scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj) override;
+  double scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & human_cmd) override;
   /**
    * @brief Assuming that this is an actual rotation when near the goal, score the trajectory.
    *

@@ -581,6 +581,11 @@ DWBLocalPlanner::scoreTrajectorySharedDWA(
       //   "scoreTrajectorySharedDWA: HumanHeading critic score %f",
       //   critic_score);
     }
+    else if (critic->getName() == "RotateToGoal") {             // in Shared DWA, allow human run away from final goal to search for subgoals
+      have_task_critics = true;
+      critic_score = critic->scoreTrajectory(traj, human_cmd);
+      task_cmd_score += critic_score * cs.scale;
+    }
     else {
       have_task_critics = true;
       critic_score = critic->scoreTrajectory(traj);

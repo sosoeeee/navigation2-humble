@@ -94,6 +94,36 @@ bool RotateToGoalCritic::prepare(
   return true;
 }
 
+double RotateToGoalCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & human_cmd)
+{
+  // in Shared DWA, allow human run away from final goal to search for subgoals
+  if (abs(human_cmd.linear.x) < 1e-3) 
+  {
+    // If we're not sufficiently close to the goal, we don't care what the twist is
+    if (!in_window_) {
+      return 0.0;
+    } else if (!rotating_) {
+      double speed_sq = hypot_sq(traj.velocity.x, traj.velocity.y);
+      if (speed_sq >= current_xy_speed_sq_) {
+        throw dwb_core::IllegalTrajectoryException(name_, "Not slowing down near goal.");
+      }
+      return speed_sq * slowing_factor_ + scoreRotation(traj);
+    }
+
+    // If we're sufficiently close to the goal, any transforming velocity is invalid
+    if (fabs(traj.velocity.x) > 0 || fabs(traj.velocity.y) > 0) {
+      throw dwb_core::
+            IllegalTrajectoryException(name_, "Nonrotation command near goal.");
+    }
+
+    return scoreRotation(traj);
+  }
+  else
+  {
+    return 0.0;
+  }
+}
+
 double RotateToGoalCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj)
 {
   // If we're not sufficiently close to the goal, we don't care what the twist is
