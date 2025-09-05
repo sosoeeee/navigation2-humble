@@ -1,5 +1,8 @@
 <class_libraries>
   <library path="dwb_critics">
+    <class type="dwb_critics::AlignToPathCritic" base_class_type="dwb_core::TrajectoryCritic">
+      <description>Forces the robot to align its heading with the path direction when human is not providing translational input</description>
+    </class>
     <class type="dwb_critics::PreferForwardCritic" base_class_type="dwb_core::TrajectoryCritic">
       <description>Penalize trajectories with move backwards and/or turn too much</description>
     </class>

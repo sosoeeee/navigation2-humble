@@ -22,6 +22,7 @@ include_directories(
 )
 
 add_library(${PROJECT_NAME} SHARED
+    src/align_to_path.cpp
     src/alignment_util.cpp
     src/map_grid.cpp
     src/goal_dist.cpp
