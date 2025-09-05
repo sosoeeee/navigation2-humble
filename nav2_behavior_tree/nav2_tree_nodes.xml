@@ -214,6 +214,8 @@
 
     <Action ID="PredictGoal">
       <input_port name="final_goal">Global destination</input_port>
+      <input_port name="server_name">Server name</input_port>
+      <input_port name="server_timeout">Server timeout</input_port>
       <output_port name="sub_goal">The predicted subgoal</output_port>
       <output_port name="is_triggered">Whether the replanning is triggered or not</output_port>
     </Action>

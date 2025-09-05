@@ -39,8 +39,8 @@ inline BT::NodeStatus HumanInvolved::tick()
 {
   callback_group_executor_.spin_some();
 
-  if (human_involving_ || child_node_status_ == BT::NodeStatus::RUNNING || first_tick_) {
-    first_tick_ = false;
+  if (human_involving_ || child_node_status_ == BT::NodeStatus::RUNNING) {
+    // first_tick_ = false;
     child_node_status_ = child_node_->executeTick();
     switch (child_node_status_) {
       case BT::NodeStatus::RUNNING:
