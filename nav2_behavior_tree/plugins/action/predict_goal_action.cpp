@@ -16,39 +16,37 @@ PredictGoalAction::PredictGoalAction(
 
 void PredictGoalAction::on_tick()
 {
-  getInput("goal", goal_.goal);
+  getInput("final_goal", goal_.final_goal);
 }
 
 BT::NodeStatus PredictGoalAction::on_success()
 {
-  setOutput("passed_goals", result_.result->passed_goals);
+  setOutput("sub_goal", result_.result->sub_goal);
   setOutput("is_triggered", result_.result->is_triggered);
   return BT::NodeStatus::SUCCESS;
 }
 
 BT::NodeStatus PredictGoalAction::on_aborted()
 {
-  // when goal is aborted, the predicted goal will be global goal
-  setOutput("passed_goals", result_.result->passed_goals);
+  // when goal is aborted, the predicted subggoal will be none
+  setOutput("sub_goal", result_.result->sub_goal);
   setOutput("is_triggered", result_.result->is_triggered);
   return BT::NodeStatus::FAILURE;
 }
 
 BT::NodeStatus PredictGoalAction::on_cancelled()
 {
-  // when goal is cancelled, the predicted goal will be global goal
-  setOutput("passed_goals", result_.result->passed_goals);
+  // when goal is cancelled, the predicted subggoal will be none
+  setOutput("sub_goal", result_.result->sub_goal);
   setOutput("is_triggered", result_.result->is_triggered);
   return BT::NodeStatus::SUCCESS;
 }
 
 void PredictGoalAction::halt()
 {
-  std::vector<geometry_msgs::msg::PoseStamped> passed_goals;
-  geometry_msgs::msg::PoseStamped global_goal;
-  getInput("goal", global_goal);
-  passed_goals.push_back(global_goal);
-  setOutput("passed_goals", passed_goals);
+  // when halting, the predicted subggoal will be none
+  geometry_msgs::msg::PoseStamped sub_goal;
+  setOutput("sub_goal", sub_goal);
   setOutput("is_triggered", false);
   BtActionNode::halt();
 }
