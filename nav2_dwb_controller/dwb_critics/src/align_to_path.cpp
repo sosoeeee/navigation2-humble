@@ -78,8 +78,8 @@ void AlignToPathCritic::reset()
 }
 
 bool AlignToPathCritic::prepare(
-  const geometry_msgs::msg::Pose2D & pose, const nav_2d_msgs::msg::Twist2D & vel,
-  const geometry_msgs::msg::Pose2D & goal,
+  const geometry_msgs::msg::Pose2D & pose, const nav_2d_msgs::msg::Twist2D & /*vel*/,
+  const geometry_msgs::msg::Pose2D & /*goal*/,
   const nav_2d_msgs::msg::Path2D & global_plan)
 {
   auto node = node_.lock();
@@ -98,9 +98,24 @@ bool AlignToPathCritic::prepare(
     return true;
   }
 
+  // find the closest point
+  int best = 0;
+  double best_d2 = std::numeric_limits<double>::max();
+  for (int i; i < static_cast<int>(global_plan.poses.size()); ++i)
+  {
+    double dx = global_plan.poses[i].x - pose.x;
+    double dy = global_plan.poses[i].y - pose.y;
+    double d2 = dx * dx + dy * dy;
+    if (d2 < best_d2)
+    {
+      best = i;
+      best_d2 = d2;
+    } 
+  }
+
   // Calculate tangent direction from path
   std::vector<geometry_msgs::msg::Pose2D> path_points;
-  int points_to_use = std::min(lookahead_points_, static_cast<int>(global_plan.poses.size()));
+  int points_to_use = std::min(lookahead_points_, static_cast<int>(global_plan.poses.size()) - best);
   
   if (points_to_use < lookahead_points_) {
     RCLCPP_WARN(
@@ -110,7 +125,7 @@ bool AlignToPathCritic::prepare(
   }
 
   for (int i = 0; i < points_to_use; ++i) {
-    path_points.push_back(global_plan.poses[i]);
+    path_points.push_back(global_plan.poses[i + best]);
   }
 
   // Calculate target heading (tangent direction)
