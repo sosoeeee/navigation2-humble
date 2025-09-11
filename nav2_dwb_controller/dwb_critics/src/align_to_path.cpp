@@ -118,7 +118,7 @@ bool AlignToPathCritic::prepare(
   int points_to_use = std::min(lookahead_points_, static_cast<int>(global_plan.poses.size()) - best);
   
   if (points_to_use < lookahead_points_) {
-    RCLCPP_WARN(
+    RCLCPP_INFO(
       node->get_logger(),
       "AlignToPathCritic: Only %d path points available, using all (requested: %d)",
       points_to_use, lookahead_points_);
