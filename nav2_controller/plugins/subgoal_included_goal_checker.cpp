@@ -31,8 +31,7 @@ SubgoalIncludedGoalChecker::SubgoalIncludedGoalChecker()
 : SimpleGoalChecker(),
   all_subgoals_reached_(false),
   subgoal_tolerance_(0.25),
-  subgoal_frame_("map"),
-  current_pose_timestamp_(rclcpp::Time(0))
+  subgoal_frame_("map")
 { 
 }
 
@@ -111,12 +110,12 @@ bool SubgoalIncludedGoalChecker::isGoalReached(
   const geometry_msgs::msg::Twist & velocity)
 {
  
-  // Update current robot pose and timestamp
-  current_pose_ = query_pose;
-  auto node = parent_node_.lock();
-  if (node) {
-    current_pose_timestamp_ = node->get_clock()->now();
-  }
+  // // Update current robot pose and timestamp
+  // current_pose_ = query_pose;
+  // auto node = parent_node_.lock();
+  // if (node) {
+  //   current_pose_timestamp_ = node->get_clock()->now();
+  // }
   
   // Check subgoals
   {
@@ -152,7 +151,7 @@ bool SubgoalIncludedGoalChecker::isGoalReached(
 }
 
 bool SubgoalIncludedGoalChecker::isSubgoalReached(
-  const geometry_msgs::msg::Pose & query_pose, const Subgoal & subgoal)
+  const geometry_msgs::msg::PoseStamped & query_pose, const Subgoal & subgoal)
 {
   auto node = parent_node_.lock();
   if (!node || !costmap_ros_) {
@@ -163,7 +162,7 @@ bool SubgoalIncludedGoalChecker::isSubgoalReached(
   double x = subgoal.x;
   double y = subgoal.y;
   
-  if (subgoal_frame_ != costmap_ros_->getGlobalFrameID()) {
+  if (subgoal_frame_ != query_pose.header.frame_id) {
     try {
       // Create a pose stamped in the subgoal frame
       geometry_msgs::msg::PoseStamped subgoal_pose;
@@ -177,7 +176,7 @@ bool SubgoalIncludedGoalChecker::isSubgoalReached(
       geometry_msgs::msg::PoseStamped transformed_pose;
       rclcpp::Duration transform_tolerance(rclcpp::Duration::from_seconds(costmap_ros_->getTransformTolerance()));
       nav_2d_utils::transformPose(
-        costmap_ros_->getTfBuffer(), costmap_ros_->getGlobalFrameID(),
+        costmap_ros_->getTfBuffer(), query_pose.header.frame_id,
         subgoal_pose, transformed_pose, transform_tolerance);
       
       // Get transformed coordinates
@@ -187,14 +186,19 @@ bool SubgoalIncludedGoalChecker::isSubgoalReached(
       RCLCPP_ERROR(
         node->get_logger(),
         "Failed to transform subgoal from %s to %s: %s",
-        subgoal_frame_.c_str(), costmap_ros_->getGlobalFrameID().c_str(), ex.what());
+        subgoal_frame_.c_str(), query_pose.header.frame_id.c_str(), ex.what());
       return false;
     }
   }
   
   // Check if the distance to the subgoal is within tolerance
-  double dx = query_pose.position.x - x;
-  double dy = query_pose.position.y - y;
+  double dx = query_pose.pose.position.x - x;
+  double dy = query_pose.pose.position.y - y;
+
+  RCLCPP_WARN(node->get_logger(), 
+      "distance to subgoal (%.2f, %.2f)", 
+      dx, dy);
+
   return (dx * dx + dy * dy) <= (subgoal_tolerance_ * subgoal_tolerance_);
 }
 
@@ -245,7 +249,7 @@ void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
 }
 
 void SubgoalIncludedGoalChecker::handleMarkSubgoalRequest(
-  const std::shared_ptr<gym_msgs::srv::MarkSubgoal::Request> /*request*/,
+  const std::shared_ptr<gym_msgs::srv::MarkSubgoal::Request> request,
   std::shared_ptr<gym_msgs::srv::MarkSubgoal::Response> response)
 {
   std::lock_guard<std::mutex> lock(subgoals_mutex_);
@@ -254,39 +258,8 @@ void SubgoalIncludedGoalChecker::handleMarkSubgoalRequest(
   response->marked_subgoal_name = "";
   
   // Get current robot pose - check if cached pose is too old
-  geometry_msgs::msg::Pose current_pose;
-  auto node = parent_node_.lock();
-  if (node && costmap_ros_) {
-    // Check if current_pose_ timestamp is too old (older than 1 second)
-    auto now = node->get_clock()->now();
-    auto pose_age = now - current_pose_timestamp_;
-    
-    if (pose_age.seconds() > 0.1) {                     // control freq is 20Hz
-      // Pose is too old, get fresh pose from costmap
-      geometry_msgs::msg::PoseStamped fresh_pose;
-      if (costmap_ros_->getRobotPose(fresh_pose)) {
-        current_pose = fresh_pose.pose;
-        if (node) {
-          RCLCPP_DEBUG(node->get_logger(), 
-            "Using fresh robot pose from costmap (cached pose was %.2f seconds old)", 
-            pose_age.seconds());
-        }
-      } else {
-        // Fall back to cached pose if we can't get fresh one
-        current_pose = current_pose_;
-        if (node) {
-          RCLCPP_ERROR(node->get_logger(), 
-            "Failed to get fresh robot pose, using cached pose");
-        }
-      }
-    } else {
-      // Cached pose is recent enough
-      current_pose = current_pose_;
-    }
-  } else {
-    // Fall back to cached pose if we can't access node or costmap
-    current_pose = current_pose_;
-  }
+  geometry_msgs::msg::PoseStamped current_pose; // map frame also
+  current_pose = request->cur_pose;
   
   // Check each subgoal
   for (auto & subgoal : subgoals_) {
@@ -355,58 +328,25 @@ SubgoalIncludedGoalChecker::dynamicParametersCallback(std::vector<rclcpp::Parame
 void SubgoalIncludedGoalChecker::publishReachedSubgoals()
 {
   auto node = parent_node_.lock();
-  if (!node || !costmap_ros_) {
+  if (!node) {
     return;
   }
  
   MarkerArray marker_array;
-  std::string global_frame = costmap_ros_->getGlobalFrameID();
-  rclcpp::Duration transform_tolerance(rclcpp::Duration::from_seconds(costmap_ros_->getTransformTolerance()));
 
   int id = 0;
   for (const auto & subgoal : subgoals_) {
     if (subgoal.reached) {
       Marker marker;
-      marker.header.frame_id = global_frame;
+      marker.header.frame_id = subgoal_frame_;
       marker.header.stamp = node->get_clock()->now();
       marker.ns = "reached_subgoals";
       marker.id = id++;
       marker.type = Marker::SPHERE;
       marker.action = Marker::ADD;
       
-      // Transform coordinates if needed
-      double x = subgoal.x;
-      double y = subgoal.y;
-      
-      if (subgoal_frame_ != global_frame) {
-        try {
-          // Create a pose stamped in the subgoal frame
-          geometry_msgs::msg::PoseStamped subgoal_pose;
-          subgoal_pose.header.frame_id = subgoal_frame_;
-          subgoal_pose.header.stamp = node->get_clock()->now();
-          subgoal_pose.pose.position.x = x;
-          subgoal_pose.pose.position.y = y;
-          subgoal_pose.pose.orientation.w = 1.0;
-          
-          // Transform to global frame
-          geometry_msgs::msg::PoseStamped transformed_pose;
-          nav_2d_utils::transformPose(
-            costmap_ros_->getTfBuffer(), global_frame,
-            subgoal_pose, transformed_pose, transform_tolerance);
-          
-          // Get transformed coordinates
-          x = transformed_pose.pose.position.x;
-          y = transformed_pose.pose.position.y;
-        } catch (const std::exception & ex) {
-          RCLCPP_ERROR(
-            node->get_logger(),
-            "Failed to transform subgoal for visualization: %s", ex.what());
-          continue;
-        }
-      }
-      
-      marker.pose.position.x = x;
-      marker.pose.position.y = y;
+      marker.pose.position.x = subgoal.x;
+      marker.pose.position.y = subgoal.y;
       marker.pose.position.z = 0.2;  // Slightly above ground
       marker.pose.orientation.w = 1.0;
       
@@ -428,25 +368,23 @@ void SubgoalIncludedGoalChecker::publishReachedSubgoals()
 }
 
 
-void SubgoalIncludedGoalChecker::publishFailedMark(const geometry_msgs::msg::Pose & pose)
+void SubgoalIncludedGoalChecker::publishFailedMark(const geometry_msgs::msg::PoseStamped & pose)
 {
   auto node = parent_node_.lock();
-  if (!node || !costmap_ros_) {
+  if (!node) {
     return;
   }
   
-  std::string global_frame = costmap_ros_->getGlobalFrameID();
-  
   Marker marker;
-  marker.header.frame_id = global_frame;
+  marker.header.frame_id = pose.header.frame_id;
   marker.header.stamp = node->get_clock()->now();
   marker.ns = "failed_mark";
   marker.id = 0;
   marker.type = Marker::SPHERE;
   marker.action = Marker::ADD;
   
-  marker.pose.position.x = pose.position.x;
-  marker.pose.position.y = pose.position.y;
+  marker.pose.position.x = pose.pose.position.x;
+  marker.pose.position.y = pose.pose.position.y;
   marker.pose.position.z = 0.2;  // Slightly above ground
   marker.pose.orientation.w = 1.0;
   

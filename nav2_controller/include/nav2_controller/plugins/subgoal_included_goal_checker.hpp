@@ -48,9 +48,9 @@ public:
     const geometry_msgs::msg::Twist & velocity) override;
 
 protected:
-  // Current robot pose
-  geometry_msgs::msg::Pose current_pose_;
-  rclcpp::Time current_pose_timestamp_;
+  // // Current robot pose
+  // geometry_msgs::msg::Pose current_pose_;
+  // rclcpp::Time current_pose_timestamp_;
   
   // Subgoal list and management
   struct Subgoal {
@@ -82,14 +82,14 @@ protected:
     std::shared_ptr<gym_msgs::srv::MarkSubgoal::Response> response);
   
   // Check if a subgoal is reached
-  bool isSubgoalReached(const geometry_msgs::msg::Pose & query_pose, const Subgoal & subgoal);
+  bool isSubgoalReached(const geometry_msgs::msg::PoseStamped & query_pose, const Subgoal & subgoal);
   
   // Load subgoals from parameters
   void loadSubgoalsFromParams();
   
   // Visualization methods
   void publishReachedSubgoals();
-  void publishFailedMark(const geometry_msgs::msg::Pose & pose);
+  void publishFailedMark(const geometry_msgs::msg::PoseStamped & pose);
   
   // Dynamic parameters handler
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
