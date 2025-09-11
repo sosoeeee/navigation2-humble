@@ -31,7 +31,8 @@ SubgoalIncludedGoalChecker::SubgoalIncludedGoalChecker()
 : SimpleGoalChecker(),
   all_subgoals_reached_(false),
   subgoal_tolerance_(0.25),
-  subgoal_frame_("map")
+  subgoal_frame_("map"),
+  current_pose_timestamp_(rclcpp::Time(0))
 { 
 }
 
@@ -110,8 +111,12 @@ bool SubgoalIncludedGoalChecker::isGoalReached(
   const geometry_msgs::msg::Twist & velocity)
 {
  
-  // Update current robot pose
+  // Update current robot pose and timestamp
   current_pose_ = query_pose;
+  auto node = parent_node_.lock();
+  if (node) {
+    current_pose_timestamp_ = node->get_clock()->now();
+  }
   
   // Check subgoals
   {
@@ -248,8 +253,40 @@ void SubgoalIncludedGoalChecker::handleMarkSubgoalRequest(
   response->success = false;
   response->marked_subgoal_name = "";
   
-  // Get current robot pose
-  geometry_msgs::msg::Pose current_pose = current_pose_;
+  // Get current robot pose - check if cached pose is too old
+  geometry_msgs::msg::Pose current_pose;
+  auto node = parent_node_.lock();
+  if (node && costmap_ros_) {
+    // Check if current_pose_ timestamp is too old (older than 1 second)
+    auto now = node->get_clock()->now();
+    auto pose_age = now - current_pose_timestamp_;
+    
+    if (pose_age.seconds() > 0.1) {                     // control freq is 20Hz
+      // Pose is too old, get fresh pose from costmap
+      geometry_msgs::msg::PoseStamped fresh_pose;
+      if (costmap_ros_->getRobotPose(fresh_pose)) {
+        current_pose = fresh_pose.pose;
+        if (node) {
+          RCLCPP_DEBUG(node->get_logger(), 
+            "Using fresh robot pose from costmap (cached pose was %.2f seconds old)", 
+            pose_age.seconds());
+        }
+      } else {
+        // Fall back to cached pose if we can't get fresh one
+        current_pose = current_pose_;
+        if (node) {
+          RCLCPP_ERROR(node->get_logger(), 
+            "Failed to get fresh robot pose, using cached pose");
+        }
+      }
+    } else {
+      // Cached pose is recent enough
+      current_pose = current_pose_;
+    }
+  } else {
+    // Fall back to cached pose if we can't access node or costmap
+    current_pose = current_pose_;
+  }
   
   // Check each subgoal
   for (auto & subgoal : subgoals_) {

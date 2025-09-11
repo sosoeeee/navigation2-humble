@@ -50,6 +50,7 @@ public:
 protected:
   // Current robot pose
   geometry_msgs::msg::Pose current_pose_;
+  rclcpp::Time current_pose_timestamp_;
   
   // Subgoal list and management
   struct Subgoal {
