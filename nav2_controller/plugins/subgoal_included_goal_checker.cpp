@@ -220,7 +220,7 @@ void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
   
   // Declare parameter for active subgoals
   nav2_util::declare_parameter_if_not_declared(
-    node, plugin_name_ + ".active_subgoals", rclcpp::ParameterValue(std::vector<int>{}));
+    node, plugin_name_ + ".active_subgoals", rclcpp::ParameterValue(std::vector<int64_t>()));
   
   int num_subgoals = 0;
   node->get_parameter(plugin_name_ + ".num_subgoals", num_subgoals);
@@ -252,7 +252,7 @@ void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
   }
   
   // Only add active subgoals to the main subgoals_ list
-  for (int active_idx : active_subgoals_) {
+  for (auto active_idx : active_subgoals_) {
     if (active_idx >= 0 && active_idx < static_cast<int>(all_subgoals.size())) {
       subgoals_.push_back(all_subgoals[active_idx]);
       RCLCPP_INFO(node->get_logger(), 
@@ -263,7 +263,7 @@ void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
         subgoal_frame_.c_str());
     } else {
       RCLCPP_WARN(node->get_logger(), 
-        "Invalid active subgoal index: %d (total subgoals: %zu)", 
+        "Invalid active subgoal index: %ld (total subgoals: %zu)", 
         active_idx, all_subgoals.size());
     }
   }
