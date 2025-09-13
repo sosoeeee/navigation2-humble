@@ -255,7 +255,7 @@ void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
   for (auto active_idx : active_subgoals_) {
     if (active_idx >= 0 && active_idx < static_cast<int>(all_subgoals.size())) {
       subgoals_.push_back(all_subgoals[active_idx]);
-      RCLCPP_INFO(node->get_logger(), 
+      RCLCPP_WARN(node->get_logger(), 
         "Activated subgoal '%s' at (%.2f, %.2f) in frame %s", 
         all_subgoals[active_idx].name.c_str(), 
         all_subgoals[active_idx].x, 
