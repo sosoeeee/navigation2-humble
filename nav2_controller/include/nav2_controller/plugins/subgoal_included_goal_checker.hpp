@@ -61,6 +61,7 @@ protected:
   };
   
   std::vector<Subgoal> subgoals_;
+  std::vector<int> active_subgoals_;  // Indices of active subgoals
   std::mutex subgoals_mutex_;
   bool all_subgoals_reached_;
   double subgoal_tolerance_;

@@ -212,14 +212,22 @@ void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
   std::lock_guard<std::mutex> lock(subgoals_mutex_);
   
   subgoals_.clear();
+  active_subgoals_.clear();
   
   // Declare parameter for number of subgoals
   nav2_util::declare_parameter_if_not_declared(
     node, plugin_name_ + ".num_subgoals", rclcpp::ParameterValue(0));
   
+  // Declare parameter for active subgoals
+  nav2_util::declare_parameter_if_not_declared(
+    node, plugin_name_ + ".active_subgoals", rclcpp::ParameterValue(std::vector<int>{}));
+  
   int num_subgoals = 0;
   node->get_parameter(plugin_name_ + ".num_subgoals", num_subgoals);
+  node->get_parameter(plugin_name_ + ".active_subgoals", active_subgoals_);
   
+  // Load all subgoals first
+  std::vector<Subgoal> all_subgoals;
   for (int i = 0; i < num_subgoals; i++) {
     std::string prefix = plugin_name_ + ".subgoal_" + std::to_string(i);
     
@@ -239,13 +247,30 @@ void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
     node->get_parameter(prefix + ".y", y);
     node->get_parameter(prefix + ".name", name);
     
-    // Add to list
-    subgoals_.push_back({x, y, name, false});
-    
-    RCLCPP_INFO(node->get_logger(), 
-      "Loaded subgoal '%s' at (%.2f, %.2f) in frame %s", 
-      name.c_str(), x, y, subgoal_frame_.c_str());
+    // Add to all subgoals list
+    all_subgoals.push_back({x, y, name, false});
   }
+  
+  // Only add active subgoals to the main subgoals_ list
+  for (int active_idx : active_subgoals_) {
+    if (active_idx >= 0 && active_idx < static_cast<int>(all_subgoals.size())) {
+      subgoals_.push_back(all_subgoals[active_idx]);
+      RCLCPP_INFO(node->get_logger(), 
+        "Activated subgoal '%s' at (%.2f, %.2f) in frame %s", 
+        all_subgoals[active_idx].name.c_str(), 
+        all_subgoals[active_idx].x, 
+        all_subgoals[active_idx].y, 
+        subgoal_frame_.c_str());
+    } else {
+      RCLCPP_WARN(node->get_logger(), 
+        "Invalid active subgoal index: %d (total subgoals: %zu)", 
+        active_idx, all_subgoals.size());
+    }
+  }
+  
+  RCLCPP_INFO(node->get_logger(), 
+    "Loaded %zu active subgoals out of %d total subgoals", 
+    subgoals_.size(), num_subgoals);
 }
 
 void SubgoalIncludedGoalChecker::handleMarkSubgoalRequest(
@@ -307,6 +332,8 @@ SubgoalIncludedGoalChecker::dynamicParametersCallback(std::vector<rclcpp::Parame
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
   
+  bool need_reload = false;
+  
   for (const auto & parameter : parameters) {
     const auto & type = parameter.get_type();
     const auto & name = parameter.get_name();
@@ -319,7 +346,17 @@ SubgoalIncludedGoalChecker::dynamicParametersCallback(std::vector<rclcpp::Parame
       if (name == plugin_name_ + ".subgoal_frame") {
         subgoal_frame_ = parameter.as_string();
       }
+    } else if (type == ParameterType::PARAMETER_INTEGER_ARRAY) {
+      if (name == plugin_name_ + ".active_subgoals") {
+        // Reload subgoals when active_subgoals parameter changes
+        need_reload = true;
+      }
     }
+  }
+  
+  // Reload subgoals if active_subgoals parameter changed
+  if (need_reload) {
+    loadSubgoalsFromParams();
   }
   
   return result;
