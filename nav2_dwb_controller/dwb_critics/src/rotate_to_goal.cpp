@@ -97,7 +97,7 @@ bool RotateToGoalCritic::prepare(
 double RotateToGoalCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & human_cmd)
 {
   // in Shared DWA, allow human run away from final goal to search for subgoals
-  if (abs(human_cmd.linear.x) < 1e-3) 
+  if (abs(human_cmd.linear.x) < 1e-3 && abs(human_cmd.angular.z) < 1e-3) 
   {
     // If we're not sufficiently close to the goal, we don't care what the twist is
     if (!in_window_) {

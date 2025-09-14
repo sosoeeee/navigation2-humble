@@ -151,7 +151,7 @@ bool AlignToPathCritic::prepare(
 double AlignToPathCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj, const geometry_msgs::msg::Twist & human_cmd)
 {
   // Check if human has translational input
-  if (human_cmd.linear.x < min_translational_vel_) {
+  if (abs(human_cmd.linear.x) < min_translational_vel_ && abs(human_cmd.angular.z) < min_translational_vel_) {
     // Human has no significant translational input
     if (needs_alignment_) {
       return scoreAlignment(traj);

@@ -404,6 +404,8 @@ DWBLocalPlanner::coreScoringAlgorithm(
 
   // get human cmd clearance
   geometry_msgs::msg::Twist local_human_cmd; 
+  local_human_cmd.linear.x = 0.0;
+  local_human_cmd.angular.z = 0.0;
   bool local_human_cmd_set = false;
   // mutex for human command
   {
@@ -744,7 +746,7 @@ DWBLocalPlanner::transformGlobalPlan(
   if (transformed_plan.poses.empty()) {
     if (last_transformed_plan_.poses.empty())
     {
-      throw nav2_core::PlannerException("Resulting plan has 0 poses in it.");
+      throw nav2_core::PlannerException("last_transformed_plan_ and transformed_plan both have 0 poses in it.");
     }
     else
     {
