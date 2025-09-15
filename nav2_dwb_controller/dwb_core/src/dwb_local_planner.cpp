@@ -255,7 +255,7 @@ DWBLocalPlanner::setPlan(const nav_msgs::msg::Path & path)
   traj_generator_->reset();
 
   // reset shared DWA
-  cmd_received_ = false;
+  // cmd_received_ = false;  // when updating the global path, do not reset the flag of human cmd
   last_transformed_plan_.poses.clear();
 
   pub_->publishGlobalPlan(path2d);
