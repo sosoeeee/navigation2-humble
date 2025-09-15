@@ -101,6 +101,10 @@ private:
   double target_heading_;          ///< Target heading direction (tangent to path)
   double current_heading_;         ///< Current robot heading
   double optimal_rotation_sign_;   ///< +1 for counter-clockwise, -1 for clockwise rotation
+
+  bool in_window_;
+  double xy_goal_tolerance_;
+  double xy_goal_tolerance_sq_;  ///< Cached squared tolerance
 };
 
 }  // namespace dwb_critics

@@ -46,6 +46,11 @@ PLUGINLIB_EXPORT_CLASS(dwb_critics::AlignToPathCritic, dwb_core::TrajectoryCriti
 namespace dwb_critics
 {
 
+inline double hypot_sq(double dx, double dy)
+{
+  return dx * dx + dy * dy;
+}
+
 void AlignToPathCritic::onInit()
 {
   auto node = node_.lock();
@@ -54,6 +59,11 @@ void AlignToPathCritic::onInit()
   }
 
   // Load parameters with default values
+  xy_goal_tolerance_ = nav_2d_utils::searchAndGetParam(
+    node,
+    dwb_plugin_name_ + ".xy_goal_tolerance", 0.25);
+  xy_goal_tolerance_sq_ = xy_goal_tolerance_ * xy_goal_tolerance_;
+
   lookahead_points_ = nav_2d_utils::searchAndGetParam(
     node,
     dwb_plugin_name_ + "." + name_ + ".lookahead_points", 3);
@@ -71,6 +81,7 @@ void AlignToPathCritic::onInit()
 
 void AlignToPathCritic::reset()
 {
+  in_window_ = false;
   needs_alignment_ = false;
   target_heading_ = 0.0;
   current_heading_ = 0.0;
@@ -79,9 +90,13 @@ void AlignToPathCritic::reset()
 
 bool AlignToPathCritic::prepare(
   const geometry_msgs::msg::Pose2D & pose, const nav_2d_msgs::msg::Twist2D & /*vel*/,
-  const geometry_msgs::msg::Pose2D & /*goal*/,
+  const geometry_msgs::msg::Pose2D & goal,
   const nav_2d_msgs::msg::Path2D & global_plan)
 {
+  // deactivate when close to goal
+  double dxy_sq = hypot_sq(pose.x - goal.x, pose.y - goal.y);
+  in_window_ = dxy_sq <= xy_goal_tolerance_sq_;
+
   auto node = node_.lock();
   if (!node) {
     RCLCPP_ERROR(rclcpp::get_logger("AlignToPathCritic"), "Failed to lock node");
@@ -153,7 +168,7 @@ double AlignToPathCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & tr
   // Check if human has translational input
   if (abs(human_cmd.linear.x) < min_translational_vel_ && abs(human_cmd.angular.z) < min_translational_vel_) {
     // Human has no significant translational input
-    if (needs_alignment_) {
+    if (needs_alignment_ && !in_window_) {
       return scoreAlignment(traj);
     }
   }
@@ -165,7 +180,7 @@ double AlignToPathCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & tr
 double AlignToPathCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj)
 {
   // For regular scoreTrajectory (without human command), only apply when alignment is needed
-  if (needs_alignment_) {
+  if (needs_alignment_ && !in_window_) {
     return scoreAlignment(traj);
   }
   return 0.0;
