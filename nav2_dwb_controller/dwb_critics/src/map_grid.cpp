@@ -62,6 +62,7 @@ void MapGridCritic::onInit()
 
   // Always set to true, but can be overriden by subclasses
   stop_on_failure_ = true;
+  failed_to_prepare_ = false;
 
   auto node = node_.lock();
   if (!node) {
@@ -116,6 +117,11 @@ void MapGridCritic::propogateManhattanDistances()
 
 double MapGridCritic::scoreTrajectory(const dwb_msgs::msg::Trajectory2D & traj)
 {
+  if (failed_to_prepare_)
+  {
+    return 0.0;
+  }
+
   double score = 0.0;
   unsigned int start_index = 0;
   if (aggregationType_ == ScoreAggregationType::Product) {

@@ -136,6 +136,7 @@ protected:
   double obstacle_score_, unreachable_score_;  ///< Special cell_values
   bool stop_on_failure_;
   ScoreAggregationType aggregationType_;
+  bool failed_to_prepare_;
 };
 }  // namespace dwb_critics
 

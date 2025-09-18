@@ -332,6 +332,16 @@ DWBLocalPlanner::computeVelocityCommands(
   try {
     dwb_msgs::msg::TrajectoryScore best = coreScoringAlgorithm(pose.pose, velocity, results);
 
+
+    // RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), 
+    //   "Best linear speed: %.4f, angular speed: %.4f, score: %.4f"
+    //   , best.traj.velocity.x, best.traj.velocity.theta, best.total);
+    // for (auto const & s : best.scores) {
+    //   RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), 
+    //   "name: %s, score: %.4f"
+    //   , s.name.c_str(), s.raw_score * s.scale);
+    // }
+
     // Return Value
     nav_2d_msgs::msg::Twist2DStamped cmd_vel;
     cmd_vel.header.stamp = clock_->now();
@@ -438,11 +448,11 @@ DWBLocalPlanner::coreScoringAlgorithm(
       //   RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), 
       //     "linear speed: %.4f, score: %.4f"
       //     , score.traj.velocity.x, score.total);
-      //   // for (auto const & s : score.scores) {
-      //   //   RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), 
-      //   //   "name: %s, score: %.4f"
-      //   //   , s.name.c_str(), s.raw_score * s.scale);
-      //   // }
+      //   for (auto const & s : score.scores) {
+      //     RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), 
+      //     "name: %s, score: %.4f"
+      //     , s.name.c_str(), s.raw_score * s.scale);
+      //   }
       // }
 
       tracker.addLegalTrajectory();
@@ -626,6 +636,18 @@ DWBLocalPlanner::scoreTrajectorySharedDWA(
   }
 
   // // debug
+
+  // if (traj.velocity.theta == 0.0 && score.traj.velocity.x >= 0){
+  //   RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), 
+  //     "linear speed: %.4f, score: %.4f, clearance: %.4f"
+  //     , score.traj.velocity.x, score.total, clearance);
+  //   for (auto const & s : score.scores) {
+  //     RCLCPP_INFO(rclcpp::get_logger("DWBLocalPlanner"), 
+  //     "name: %s, score: %.4f"
+  //     , s.name.c_str(), s.raw_score * s.scale);
+  //   }
+  // }
+
   // RCLCPP_INFO(
   //   rclcpp::get_logger("DWBLocalPlanner"),
   //   "human_cmd_score %f, "
@@ -781,21 +803,36 @@ void DWBLocalPlanner::humanCmdCallback(const geometry_msgs::msg::Twist::SharedPt
 double DWBLocalPlanner::getTrajClearance(const dwb_msgs::msg::Trajectory2D & traj)
 {
   double clearance = 0.0;
-  unsigned int cell_x, cell_y;
+  unsigned int cell_ex, cell_ey, cell_sx, cell_sy;
+  if (!costmap_->worldToMap(traj.poses[0].x,
+      traj.poses[0].y, cell_sx, cell_sy))
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("DWBLocalPlanner"), "The start point of trajectory is out of the costmap. That should never happen.");
+  }
+
+  unsigned char start_cost = costmap_->getCost(cell_sx, cell_sy);
+
   if (!costmap_->worldToMap(traj.poses.back().x,
-      traj.poses.back().y, cell_x, cell_y))
+      traj.poses.back().y, cell_ex, cell_ey))
   {
     return clearance;
   }
-  unsigned char cost = costmap_->getCost(cell_x, cell_y);
-  if (cost == nav2_costmap_2d::LETHAL_OBSTACLE ||
-      cost == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE ||
-      cost == nav2_costmap_2d::NO_INFORMATION)
+  unsigned char end_cost = costmap_->getCost(cell_ex, cell_ey);
+  if (end_cost == nav2_costmap_2d::LETHAL_OBSTACLE ||
+      end_cost == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE ||
+      end_cost == nav2_costmap_2d::NO_INFORMATION)
   {
     return clearance;
   }
 
-  return 1.0 - static_cast<double>(cost) / 255.0;
+  double change_cost = static_cast<double>(end_cost) - static_cast<double>(start_cost);
+  if (change_cost > 0.0) {
+    // moving into worse cost
+    return 1 - change_cost / 255.0;
+  } else {
+    // moving into better cost
+    return 1.0;
+  }
 }
 
 }  // namespace dwb_core

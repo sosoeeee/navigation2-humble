@@ -53,6 +53,7 @@ bool PathDistCritic::prepare(
 {
   reset();
   bool started_path = false;
+  failed_to_prepare_ = false;
 
   nav_2d_msgs::msg::Path2D adjusted_global_plan =
     nav_2d_utils::adjustPlanResolution(global_plan, costmap_->getResolution());
@@ -88,6 +89,7 @@ bool PathDistCritic::prepare(
       "None of the %d first of %zu (%zu) points of the global plan were in "
       "the local costmap and free",
       i, adjusted_global_plan.poses.size(), global_plan.poses.size());
+    failed_to_prepare_ = true;
     return false;
   }
 

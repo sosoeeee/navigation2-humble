@@ -53,8 +53,10 @@ bool GoalDistCritic::prepare(
 {
   reset();
 
+  failed_to_prepare_ = false;
   unsigned int local_goal_x, local_goal_y;
   if (!getLastPoseOnCostmap(global_plan, local_goal_x, local_goal_y)) {
+    failed_to_prepare_ = true;
     return false;
   }
 
