@@ -19,6 +19,7 @@
 #include "nav2_controller/plugins/simple_goal_checker.hpp"
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "gym_msgs/srv/mark_subgoal.hpp"
+#include "gym_msgs/srv/update_subgoals.hpp"
 #include "std_msgs/msg/empty.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
@@ -69,6 +70,9 @@ protected:
   // Service for marking subgoals
   rclcpp::Service<gym_msgs::srv::MarkSubgoal>::SharedPtr mark_subgoal_service_;
   
+  // Service for updating active subgoals
+  rclcpp::Service<gym_msgs::srv::UpdateSubgoals>::SharedPtr update_subgoals_service_;
+  
   // Visualization publishers
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr reached_subgoals_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr failed_mark_pub_;
@@ -81,6 +85,11 @@ protected:
   void handleMarkSubgoalRequest(
     const std::shared_ptr<gym_msgs::srv::MarkSubgoal::Request> request,
     std::shared_ptr<gym_msgs::srv::MarkSubgoal::Response> response);
+  
+  // Method to handle UpdateSubgoals service requests
+  void handleUpdateSubgoalsRequest(
+    const std::shared_ptr<gym_msgs::srv::UpdateSubgoals::Request> request,
+    std::shared_ptr<gym_msgs::srv::UpdateSubgoals::Response> response);
   
   // Check if a subgoal is reached
   bool isSubgoalReached(const geometry_msgs::msg::PoseStamped & query_pose, const Subgoal & subgoal);

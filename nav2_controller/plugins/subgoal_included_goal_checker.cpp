@@ -68,11 +68,18 @@ void SubgoalIncludedGoalChecker::initialize(
   node->get_parameter(plugin_name + ".subgoal_frame", subgoal_frame_);
   
   // Create service for marking subgoals
-  auto callback = std::bind(&SubgoalIncludedGoalChecker::handleMarkSubgoalRequest, 
-                            this, std::placeholders::_1, std::placeholders::_2);
+  auto mark_callback = std::bind(&SubgoalIncludedGoalChecker::handleMarkSubgoalRequest, 
+                                 this, std::placeholders::_1, std::placeholders::_2);
   
   mark_subgoal_service_ = node->create_service<gym_msgs::srv::MarkSubgoal>(
-    "mark_subgoal", callback);
+    "mark_subgoal", mark_callback);
+  
+  // Create service for updating active subgoals
+  auto update_callback = std::bind(&SubgoalIncludedGoalChecker::handleUpdateSubgoalsRequest,
+                                   this, std::placeholders::_1, std::placeholders::_2);
+  
+  update_subgoals_service_ = node->create_service<gym_msgs::srv::UpdateSubgoals>(
+    "update_subgoals", update_callback);
     
   // Create visualization publishers
   reached_subgoals_pub_ = node->create_publisher<MarkerArray>(
@@ -96,7 +103,7 @@ void SubgoalIncludedGoalChecker::reset()
 {
   SimpleGoalChecker::reset();
   
-  std::lock_guard<std::mutex> lock(subgoals_mutex_);
+  // std::lock_guard<std::mutex> lock(subgoals_mutex_);
   
   // Reset the 'reached' status of all subgoals
   // for (auto & subgoal : subgoals_) {
@@ -437,6 +444,48 @@ void SubgoalIncludedGoalChecker::publishFailedMark(const geometry_msgs::msg::Pos
   marker.lifetime = rclcpp::Duration::from_seconds(5.0);  // Display for 5 seconds
   
   failed_mark_pub_->publish(marker);
+}
+
+void SubgoalIncludedGoalChecker::handleUpdateSubgoalsRequest(
+  const std::shared_ptr<gym_msgs::srv::UpdateSubgoals::Request> request,
+  std::shared_ptr<gym_msgs::srv::UpdateSubgoals::Response> response)
+{
+  std::lock_guard<std::mutex> lock(subgoals_mutex_);
+  
+  // Clear the active subgoals
+  subgoals_.clear();
+  all_subgoals_reached_ = false;
+  
+  try {
+    // Create new subgoals from the active indices
+    for (const auto& index : request->active_subgoal_indices) {
+      if (index >= 0 && index < static_cast<int>(all_subgoals_.size())) {
+        Subgoal subgoal;
+        subgoal.x = all_subgoals_[index].x;
+        subgoal.y = all_subgoals_[index].y;
+        subgoal.name = all_subgoals_[index].name;
+        subgoal.index = index;
+        subgoal.reached = false;  // Reset all reached flags to false
+        subgoals_.push_back(subgoal);
+      } else {
+        response->success = false;
+        response->message = "Invalid subgoal index: " + std::to_string(index);
+        return;
+      }
+    }
+    
+    response->success = true;
+    response->message = "Active subgoals updated successfully";
+    
+    if (auto node = parent_node_.lock()) {
+      RCLCPP_INFO(node->get_logger(), 
+        "Updated active subgoals: %zu subgoals loaded", subgoals_.size());
+    }
+    
+  } catch (const std::exception& e) {
+    response->success = false;
+    response->message = "Error updating subgoals: " + std::string(e.what());
+  }
 }
 
 }  // namespace nav2_controller
