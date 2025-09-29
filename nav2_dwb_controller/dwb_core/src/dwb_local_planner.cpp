@@ -426,7 +426,7 @@ DWBLocalPlanner::coreScoringAlgorithm(
     }
   }
 
-  double human_cmd_clearance = 0.0;
+  double human_cmd_clearance = -1.0; // to indicate there is no human command
   // Use the most recent human command
   if (local_human_cmd_set)
   {
@@ -617,7 +617,7 @@ DWBLocalPlanner::scoreTrajectorySharedDWA(
   //   human_cmd_score * human_cmd_clearance + task_cmd_score * (1 - human_cmd_clearance));
 
   // switch control
-  if (human_cmd_clearance < 1e-3)
+  if (human_cmd_clearance < 0.0) // no human command
   {
     score.total = task_cmd_score;
 
@@ -629,6 +629,12 @@ DWBLocalPlanner::scoreTrajectorySharedDWA(
       score.traj.velocity.y = 0.0;
       score.traj.velocity.theta = 0.0;
     }
+  }
+  else if (human_cmd_clearance < 1e-3) // human cmd clearance is too low, robot stops
+  {
+    score.traj.velocity.x = 0.0;
+    score.traj.velocity.y = 0.0;
+    score.traj.velocity.theta = 0.0;
   }
   else
   {
