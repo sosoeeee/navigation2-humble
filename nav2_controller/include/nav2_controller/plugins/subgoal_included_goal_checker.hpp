@@ -61,6 +61,7 @@ protected:
     bool reached;
   };
   
+  std::vector<Subgoal> all_subgoals_;
   std::vector<Subgoal> subgoals_;
   std::vector<int64_t> active_subgoals_;  // Indices of active subgoals
   std::mutex subgoals_mutex_;

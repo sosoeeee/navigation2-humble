@@ -234,7 +234,6 @@ void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
   node->get_parameter(plugin_name_ + ".active_subgoals", active_subgoals_);
   
   // Load all subgoals first
-  std::vector<Subgoal> all_subgoals;
   for (int i = 0; i < num_subgoals; i++) {
     std::string prefix = plugin_name_ + ".subgoal_" + std::to_string(i);
     
@@ -255,23 +254,23 @@ void SubgoalIncludedGoalChecker::loadSubgoalsFromParams()
     node->get_parameter(prefix + ".name", name);
     
     // Add to all subgoals list
-    all_subgoals.push_back({x, y, name, false});
+    all_subgoals_.push_back({x, y, name, false});
   }
   
   // Only add active subgoals to the main subgoals_ list
   for (auto active_idx : active_subgoals_) {
-    if (active_idx >= 0 && active_idx < static_cast<int>(all_subgoals.size())) {
-      subgoals_.push_back(all_subgoals[active_idx]);
+    if (active_idx >= 0 && active_idx < static_cast<int>(all_subgoals_.size())) {
+      subgoals_.push_back(all_subgoals_[active_idx]);
       RCLCPP_WARN(node->get_logger(), 
         "Activated subgoal '%s' at (%.2f, %.2f) in frame %s", 
-        all_subgoals[active_idx].name.c_str(), 
-        all_subgoals[active_idx].x, 
-        all_subgoals[active_idx].y, 
+        all_subgoals_[active_idx].name.c_str(), 
+        all_subgoals_[active_idx].x, 
+        all_subgoals_[active_idx].y, 
         subgoal_frame_.c_str());
     } else {
       RCLCPP_WARN(node->get_logger(), 
         "Invalid active subgoal index: %ld (total subgoals: %zu)", 
-        active_idx, all_subgoals.size());
+        active_idx, all_subgoals_.size());
     }
   }
   
@@ -464,9 +463,15 @@ void SubgoalIncludedGoalChecker::handleUpdateSubgoalsRequest(
         subgoal.x = all_subgoals_[index].x;
         subgoal.y = all_subgoals_[index].y;
         subgoal.name = all_subgoals_[index].name;
-        subgoal.index = index;
         subgoal.reached = false;  // Reset all reached flags to false
         subgoals_.push_back(subgoal);
+
+        // // debug
+        //   if (auto node = parent_node_.lock()) {
+        //       RCLCPP_WARN(node->get_logger(), 
+        //         "Add subgoal: %ld", index);
+        //   }
+
       } else {
         response->success = false;
         response->message = "Invalid subgoal index: " + std::to_string(index);
