@@ -734,6 +734,17 @@ DWBLocalPlanner::transformGlobalPlan(
       return euclidean_distance(robot_pose.pose, global_plan_pose) < transform_start_threshold;
     });
 
+    if (transformation_begin != prune_point)
+    {
+      last_transformation_begin_ = *transformation_begin;
+    }
+    else
+    {
+      transformation_begin = std::find(global_plan_.poses.begin(), prune_point, last_transformation_begin_);
+      RCLCPP_INFO(
+        logger_, "Too far away from current plan. Use last transformation begin!");
+    }
+
   // Find the first pose in the end of the plan that's further than transform_end_threshold
   // from the robot using integrated distance
   auto transformation_end = std::find_if(

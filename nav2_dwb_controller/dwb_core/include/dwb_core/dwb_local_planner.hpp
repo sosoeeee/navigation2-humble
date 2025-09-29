@@ -267,6 +267,7 @@ protected:
   nav2_costmap_2d::Costmap2D * costmap_;
   double human_cmd_factor_;
   nav_2d_msgs::msg::Path2D last_transformed_plan_;
+  geometry_msgs::msg::Pose2D last_transformation_begin_;
 
   // mutex
   std::mutex human_cmd_mutex_;
