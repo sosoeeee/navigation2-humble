@@ -449,8 +449,28 @@ void SubgoalIncludedGoalChecker::handleUpdateSubgoalsRequest(
   const std::shared_ptr<gym_msgs::srv::UpdateSubgoals::Request> request,
   std::shared_ptr<gym_msgs::srv::UpdateSubgoals::Response> response)
 {
+  auto node = parent_node_.lock();
+  if (!node) {
+    response->success = false;
+    response->message = "Can not get parent node";
+    return;
+  }
+
   std::lock_guard<std::mutex> lock(subgoals_mutex_);
-  
+   
+  // reset visulization
+  MarkerArray marker_array;
+  for (int id = 0; id < static_cast<int>(subgoals_.size()); id++) {
+    Marker marker;
+    marker.header.frame_id = subgoal_frame_;
+    marker.header.stamp = node->get_clock()->now();
+    marker.ns = "reached_subgoals";
+    marker.id = id;
+    marker.action = Marker::DELETE;
+    marker_array.markers.push_back(marker);
+  }
+  reached_subgoals_pub_->publish(marker_array);
+
   // Clear the active subgoals
   subgoals_.clear();
   all_subgoals_reached_ = false;
